@@ -38,7 +38,10 @@ router.put('/:id', async (req, res) => {
     const updatedCampaign = await updateCampaign(id, campaignData);
     res.json(updatedCampaign);
   } catch (error) {
-    console.error('Update campaign error:', error);
+    console.error('Update campaign error:', error.message);
+    if (error.message === 'Invalid Campaign ID' || error.message === 'Campaign not found') {
+        return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to update campaign' });
   }
 });

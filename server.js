@@ -4,6 +4,13 @@ require('dotenv').config();
 
 const app = express();
 
+const mongoose = require('mongoose');
+
+// Database Connection
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((err) => console.error('❌ MongoDB Connection Error:', err));
+
 // Middleware
 // app.use(cors({
 //     origin: true, // Reflects the request origin
@@ -16,7 +23,8 @@ const corsOptions = {
     // allow Postman, curl, server-to-server
     if (!origin) return callback(null, true);
 
-    if (origin === process.env.FRONTEND_URL) {
+    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'];
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -40,8 +48,6 @@ app.options('*', cors(corsOptions)); // 👈 VERY IMPORTANT
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-console.log('✅ Using file-based user storage (no database required)');
-
 // Routes
 const authRoutes = require('./routes/auth');
 const publisherRoutes = require('./routes/publishers');
@@ -54,6 +60,7 @@ app.use('/api/publishers', publisherRoutes);
 app.use('/api/postback', postbackRoutes);
 app.use('/api/track', trackingRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/stats', require('./routes/stats'));
 
 // Base route
 app.get('/', (req, res) => {
@@ -70,3 +77,6 @@ const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
+

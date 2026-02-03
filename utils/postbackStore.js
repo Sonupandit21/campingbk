@@ -1,33 +1,39 @@
-const fs = require('fs').promises;
-const path = require('path');
+const PostbackConfig = require('../models/PostbackConfig');
 
-const POSTBACK_FILE = path.join(__dirname, '../data/postback.json');
-
-// Ensure data directory exists
-async function ensureDataDir() {
-  const dataDir = path.dirname(POSTBACK_FILE);
-  try {
-    await fs.mkdir(dataDir, { recursive: true });
-  } catch (err) {
-    // Directory already exists
-  }
-}
-
-// Read postback config
+// Read postback config (Singleton behavior)
 async function getPostbackConfig() {
   try {
-    const data = await fs.readFile(POSTBACK_FILE, 'utf8');
-    return JSON.parse(data);
+    const config = await PostbackConfig.findOne();
+    if (!config) {
+      return { url: '' };
+    }
+    return { ...config.toObject(), id: config._id.toString() };
   } catch (err) {
+    console.error('Error fetching postback config:', err);
     return { url: '' };
   }
 }
 
-// Save postback config
-async function savePostbackConfig(config) {
-  await ensureDataDir();
-  await fs.writeFile(POSTBACK_FILE, JSON.stringify(config, null, 2));
-  return config;
+// Save postback config (Upsert)
+async function savePostbackConfig(configData) {
+  try {
+    // Update existing or create new if not exists
+    // Since there should be only one, we can find one or create.
+    let config = await PostbackConfig.findOne();
+    
+    if (config) {
+        config.url = configData.url;
+        await config.save();
+    } else {
+        config = new PostbackConfig(configData);
+        await config.save();
+    }
+    
+    return { ...config.toObject(), id: config._id.toString() };
+  } catch (err) {
+    console.error('Error saving postback config:', err);
+    throw err;
+  }
 }
 
 module.exports = {

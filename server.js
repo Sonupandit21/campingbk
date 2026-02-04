@@ -98,7 +98,7 @@ app.get('/api/health', async (req, res) => {
 
 // Base route
 app.get('/', (req, res) => {
-  res.send('FullPanel Backend API is running (v2 - DB Fix)');
+  res.send('FullPanel Backend API is running (v3 - Registration Fix)');
 });
 
 // Error handling middleware

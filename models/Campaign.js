@@ -11,6 +11,7 @@ const campaignSchema = new mongoose.Schema({
   },
   description: String,
   previewUrl: String,
+  overrideUrl: String,
   defaultUrl: {
     type: String,
     required: true

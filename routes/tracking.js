@@ -8,111 +8,207 @@ const { getPostbackConfig } = require('../utils/postbackStore');
 const { getAllPublishers } = require('../utils/publisherStore');
 
 // Helper to replace macros like {click_id}, {source} with actual values
-function replaceMacros(url, params) {
-  return url.replace(/{(.*?)}/g, (_, key) => params[key] || '');
-}
+const replaceMacros = (url, params) => {
+    if (!url) return '';
+    return url
+        .split('{click_id}').join(params.click_id || '')
+        .split('{payout}').join(params.payout || '')
+        .split('{camp_id}').join(params.camp_id || '')
+        .split('{publisher_id}').join(params.publisher_id || '')
+        .split('{source}').join(params.source || '')
+        .split('{source_id}').join(params.source || '') // Alias
+        .split('{gaid}').join(params.gaid || '')
+        .split('{idfa}').join(params.idfa || '')
+        .split('{app_name}').join(params.app_name || '')
+        .split('{p1}').join(params.p1 || '')
+        .split('{p2}').join(params.p2 || '');
+};
 
-// Dummy sendPostback (replace with real HTTP request)
-async function sendPostback(url, label) {
-  console.log(`[Postback] Sending to ${label}: ${url}`);
-}
+// Helper to send postback with retry logic
+const sendPostback = async (url, type) => {
+    const maxRetries = 3;
+    const timeout = 15000; // 15 seconds
 
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            console.log(`Firing ${type} postback (Attempt ${i + 1}/${maxRetries}): ${url}`);
+            
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(id);
+
+            if (response.ok) {
+                console.log(`${type} postback successful.`);
+                return;
+            } else {
+                console.warn(`${type} postback returned status: ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`${type} postback attempt ${i + 1} failed:`, error.message);
+            if (i < maxRetries - 1) {
+                // Wait before retrying (1s, 2s, ...)
+                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+            }
+        }
+    }
+    console.error(`${type} postback failed after ${maxRetries} attempts.`);
+};
+
+// Tracking and Postback Endpoint
 router.get('/', async (req, res) => {
   try {
-    const {
-      camp_id, publisher_id, click_id, payout,
-      source, source_id, gaid, idfa, app_name, p1, p2
-    } = req.query;
-
-    if (!camp_id) return res.status(400).send('Missing camp_id');
-
+    const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
+    
+    // Normalize source
     const finalSource = source || source_id || '';
 
-    const params = {
-      camp_id,
-      publisher_id: publisher_id || '',
-      click_id: click_id || '',
-      payout: payout || '',
-      source: finalSource,
-      gaid: gaid || '',
-      idfa: idfa || '',
-      app_name: app_name || '',
-      p1: p1 || '',
-      p2: p2 || ''
-    };
-
-    // === Handle conversion postback ===
+    // ==========================================
+    // CASE 1: CONVERSION POSTBACK (Has Payout)
+    // ==========================================
     if (payout) {
-      console.log(`Conversion: camp=${camp_id}, click_id=${click_id}, payout=${payout}`);
+        console.log(`Received conversion: camp=${camp_id}, pub=${publisher_id}, click=${click_id}, source=${finalSource}, payout=${payout}`);
 
-      await Conversion.create({
-        click_id,
-        camp_id,
-        publisher_id,
-        payout: parseFloat(payout) || 0,
-        source: finalSource,
-        gaid,
-        idfa,
-        app_name,
-        p1,
-        p2,
-        status: 'approved'
-      });
+        const params = {
+            click_id: click_id || '',
+            payout: payout || '',
+            camp_id: camp_id || '',
+            publisher_id: publisher_id || '',
+            source: finalSource,
+            gaid: gaid || '',
+            idfa: idfa || '',
+            app_name: app_name || '',
+            p1: p1 || '',
+            p2: p2 || ''
+        };
 
-      const config = await getPostbackConfig();
-      if (config.url) sendPostback(replaceMacros(config.url, params), 'Global');
+        // 1. Log conversion (Persist to DB)
+        try {
+            await Conversion.create({
+                click_id: params.click_id,
+                camp_id: params.camp_id,
+                publisher_id: params.publisher_id,
+                payout: parseFloat(params.payout) || 0,
+                source: params.source,
+                gaid: params.gaid,
+                idfa: params.idfa,
+                app_name: params.app_name,
+                p1: params.p1,
+                p2: params.p2,
+                status: 'approved'
+            });
+            console.log('Conversion saved to DB');
+        } catch (dbError) {
+            console.error('Failed to save conversion to DB:', dbError);
+        }
 
-      if (publisher_id) {
-        const publishers = await getAllPublishers();
-        const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
-        if (publisher?.postbackUrl) sendPostback(replaceMacros(publisher.postbackUrl, params), `Publisher ${publisher.id}`);
-      }
+        // 2. Fire Global Postback if configured
+        const config = await getPostbackConfig();
+        if (config.url) {
+          const postbackUrl = replaceMacros(config.url, params);
+          sendPostback(postbackUrl, 'Global').catch(err => console.error('Global postback fatal error:', err));
+        }
 
-      return res.json({ success: true, message: 'Conversion recorded' });
+        // 3. Fire Publisher Specific Postback if configured
+        if (publisher_id) {
+            const publishers = await getAllPublishers();
+            
+            // Loose matching for ID (string vs number)
+            const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
+
+            if (publisher && publisher.postbackUrl) {
+                const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
+                sendPostback(pubPostbackUrl, `Publisher ${publisher.id}`).catch(err => console.error('Publisher postback fatal error:', err));
+            }
+        }
+
+        return res.status(200).json({ success: true, message: 'Conversion recorded' });
     }
 
-    // === Handle clicks and redirects ===
-    console.log(`Click: camp=${camp_id}, click_id=${click_id}`);
+    // ==========================================
+    // CASE 2: CLICK REDIRECTION (No Payout)
+    // ==========================================
+    else if (camp_id) {
+        console.log(`Received click: camp=${camp_id}, pub=${publisher_id}, click_id=${click_id}`);
 
-    // Log click async
-    Click.create({
-      click_id: click_id || '',
-      camp_id,
-      publisher_id: publisher_id || '',
-      source: finalSource,
-      payout: 0,
-      ip_address: req.ip || req.connection.remoteAddress,
-      user_agent: req.get('User-Agent') || ''
-    }).catch(e => console.error('Click logging error:', e));
+        // Log Click (Async)
+        try {
+            Click.create({
+                click_id: click_id || '',
+                camp_id: camp_id,
+                publisher_id: publisher_id || '',
+                source: finalSource,
+                payout: 0,
+                ip_address: req.ip || req.connection.remoteAddress,
+                user_agent: req.get('User-Agent') || ''
+            }).catch(e => console.error('Click logging background error:', e));
+        } catch (e) {
+            console.error('Click logging error:', e);
+        }
 
-    // Fetch campaign
-    let campaign;
-    if (mongoose.Types.ObjectId.isValid(camp_id)) {
-      campaign = await Campaign.findById(camp_id);
+        let campaign;
+        try {
+            // Attempt efficient lookup first
+            if (mongoose.Types.ObjectId.isValid(camp_id)) {
+                campaign = await Campaign.findById(camp_id);
+            }
+        } catch (err) {
+            console.log('Direct ID lookup failed, trying fallback search');
+        }
+
+        // Fallback: If not found or invalid format, scan all to support legacy string/int IDs
+        if (!campaign) {
+            const allCampaigns = await Campaign.find({}); // Optimization: select only needed fields? .select('id defaultUrl overrideUrl')
+            // Match _id or potential 'id' field loosely
+            campaign = allCampaigns.find(c => c._id.toString() == camp_id || c.id == camp_id);
+        }
+
+        if (!campaign) {
+            console.error(`Campaign not found for ID: ${camp_id}`);
+            return res.status(404).send('Campaign not found');
+        }
+
+        // === DETERMINING TARGET URL (With Fallback) ===
+        // Prioritize overrideUrl if set, otherwise defaultUrl
+        const targetUrl = campaign.overrideUrl || campaign.defaultUrl;
+
+        if (!targetUrl) {
+            return res.status(400).send('Campaign has no destination URL');
+        }
+
+        // Prepare macros for replacement
+        // Note: For clicks, we pass through whatever we received
+        const params = {
+            click_id: click_id || '',
+            payout: '', // No payout on click
+            camp_id: camp_id,
+            publisher_id: publisher_id || '',
+            source: finalSource,
+            gaid: gaid || '',
+            idfa: idfa || '',
+            app_name: app_name || '',
+            p1: p1 || '',
+            p2: p2 || ''
+        };
+
+        const destinationUrl = replaceMacros(targetUrl, params);
+        
+        console.log(`Redirecting to: ${destinationUrl}`);
+        return res.redirect(destinationUrl);
     }
-    if (!campaign) {
-      const allCampaigns = await Campaign.find({});
-      campaign = allCampaigns.find(c => c._id.toString() === camp_id || c.id == camp_id);
+    
+    // ==========================================
+    // CASE 3: INVALID REQUEST
+    // ==========================================
+    else {
+        return res.status(400).send('Missing required parameters (camp_id)');
     }
-    if (!campaign) return res.status(404).send('Campaign not found');
-
-    // Use overrideUrl if present, else defaultUrl
-    const redirectUrl = campaign.overrideUrl || campaign.defaultUrl;
-    if (!redirectUrl) return res.status(400).send('No redirect URL configured for campaign');
-
-    const destinationUrl = replaceMacros(redirectUrl, params);
-    console.log(`Redirecting to: ${destinationUrl}`);
-
-    return res.redirect(destinationUrl);
 
   } catch (error) {
     console.error('Tracking error:', error);
-    return res.status(500).json({ error: 'Tracking failed' });
+    res.status(500).json({ error: 'Tracking failed' });
   }
 });
 
 module.exports = router;
-
-
-
-

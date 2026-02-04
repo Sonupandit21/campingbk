@@ -25,8 +25,10 @@ async function findUserByEmail(email) {
 async function createUser(userData) {
   const { name, mobile, email, password, photo } = userData;
   
+  const emailLower = email.toLowerCase();
+
   // Custom check to ensure no duplicates
-  const existingUser = await User.findOne({ email });
+  const existingUser = await User.findOne({ email: emailLower });
   if (existingUser) {
     throw new Error('Email already exists');
   }
@@ -34,7 +36,7 @@ async function createUser(userData) {
   const user = new User({
     name,
     username: name, // Populate username with name for fallback
-    email,
+    email: emailLower,
     mobile,
     photo,
     password, // Mongoose pre-save hook will hash this

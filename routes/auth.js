@@ -30,8 +30,8 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
-    if (error.message === 'Email already exists') {
-      return res.status(400).json({ error: error.message });
+    if (error.message === 'Email already exists' || error.code === 11000) {
+      return res.status(400).json({ error: 'Email already exists' });
     }
 
     if (error.message.includes('buffering timed out') || error.message.includes('Timeout')) {

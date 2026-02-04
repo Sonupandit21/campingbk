@@ -34,13 +34,19 @@ async function createPublisher(publisherData) {
 
 // Update publisher
 async function updatePublisher(id, publisherData) {
-  const publisher = await Publisher.findByIdAndUpdate(id, publisherData, { new: true });
+  let publisher;
+  if (!mongoose.Types.ObjectId.isValid(id) && !isNaN(id)) {
+     publisher = await Publisher.findOneAndUpdate({ publisherId: Number(id) }, publisherData, { new: true });
+  } else {
+     publisher = await Publisher.findByIdAndUpdate(id, publisherData, { new: true });
+  }
+
   if (!publisher) {
     throw new Error('Publisher not found');
   }
   return {
     ...publisher.toObject(),
-    id: publisher._id.toString()
+    id: publisher.publisherId || publisher._id.toString()
   };
 }
 

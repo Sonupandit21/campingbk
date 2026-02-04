@@ -30,16 +30,26 @@ async function createCampaign(campaignData) {
 
 // Update campaign
 async function updateCampaign(id, campaignData) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid Campaign ID');
+  let campaign;
+  // Check if it looks like a valid ObjectId
+  const isObjectId = mongoose.Types.ObjectId.isValid(id);
+  
+  if (!isObjectId && !isNaN(id)) {
+      // Numeric ID -> Search by campaignId
+      campaign = await Campaign.findOneAndUpdate({ campaignId: Number(id) }, campaignData, { new: true });
+  } else if (isObjectId) {
+      // Mongo ID -> Search by _id
+      campaign = await Campaign.findByIdAndUpdate(id, campaignData, { new: true });
+  } else {
+      throw new Error('Invalid ID format');
   }
-  const campaign = await Campaign.findByIdAndUpdate(id, campaignData, { new: true });
+
   if (!campaign) {
     throw new Error('Campaign not found');
   }
   return {
     ...campaign.toObject(),
-    id: campaign._id.toString()
+    id: campaign.campaignId || campaign._id.toString()
   };
 }
 

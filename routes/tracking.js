@@ -62,6 +62,24 @@ router.get('/', async (req, res) => {
     const finalSource = source || source_id || '';
 
     // ==========================================
+    // SPECIAL OVERRIDE: Campaign 1 -> Trackier
+    // ==========================================
+    if (camp_id === '1') {
+        const overrideUrl = "https://jjkjdnc.gotrackier.com/click?campaign_id=5082&pub_id=2&p1={click_id}&source={source}";
+        // Mapping:
+        // p1 (Transaction ID) -> click_id
+        // source (Sub Aff ID) -> source_id (which is normalized to finalSource)
+        
+        const params = {
+            click_id: click_id || '',
+            source: finalSource
+        };
+        const destinationUrl = replaceMacros(overrideUrl, params);
+        console.log(`[Override] Redirecting Campaign 1 to: ${destinationUrl}`);
+        return res.redirect(destinationUrl);
+    }
+
+    // ==========================================
     // SPECIAL OVERRIDE: Campaign 3 -> Unstop
     // ==========================================
     if (camp_id === '3') {

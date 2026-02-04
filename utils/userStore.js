@@ -1,150 +1,104 @@
-const fs = require('fs').promises;
-const path = require('path');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
-const USERS_FILE = path.join(__dirname, '../data/users.json');
-
-// Ensure data directory exists
-async function ensureDataDir() {
-  const dataDir = path.dirname(USERS_FILE);
-  try {
-    await fs.mkdir(dataDir, { recursive: true });
-  } catch (err) {
-    // Directory already exists
-  }
-}
-
-// Read users from file
-async function readUsers() {
-  try {
-    const data = await fs.readFile(USERS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    // File doesn't exist yet
-    return [];
-  }
-}
-
+// Get all users
 async function getAllUsers() {
-  return await readUsers();
-}
-
-// Write users to file
-async function writeUsers(users) {
-  await ensureDataDir();
-  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+  const users = await User.find().sort({ createdAt: -1 });
+  return users.map(u => ({
+    ...u.toObject(),
+    id: u._id.toString()
+  }));
 }
 
 // Find user by email
 async function findUserByEmail(email) {
-  const users = await readUsers();
-  return users.find(u => u.email === email);
+  const user = await User.findOne({ email });
+  if (!user) return null;
+  return {
+    ...user.toObject(),
+    id: user._id.toString(),
+    password: user.password
+  };
 }
 
 // Create new user
 async function createUser(userData) {
-  const users = await readUsers();
-  
   const { name, mobile, email, password, photo } = userData;
-
-  // Check if email exists
-  if (users.find(u => u.email === email)) {
+  
+  // Custom check to ensure no duplicates
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
     throw new Error('Email already exists');
   }
-  
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 8);
-  
-  const newUser = {
-    id: Date.now().toString(),
+
+  const user = new User({
     name,
-    mobile,
+    username: name, // Populate username with name for fallback
     email,
-    password: hashedPassword,
-    photo, // Base64 string
-    role: 'user',
-    createdAt: new Date().toISOString()
-  };
-  
-  users.push(newUser);
-  await writeUsers(users);
+    mobile,
+    photo,
+    password, // Mongoose pre-save hook will hash this
+    role: 'user'
+  });
+
+  await user.save();
   
   return {
-    id: newUser.id,
-    name: newUser.name,
-    email: newUser.email,
-    role: newUser.role,
-    photo: newUser.photo
+    ...user.toObject(),
+    id: user._id.toString()
   };
 }
 
 // Delete user
 async function deleteUser(userId) {
-  const users = await readUsers();
-  const newUsers = users.filter(u => u.id !== userId);
-  await writeUsers(newUsers);
-  return newUsers;
+  await User.findByIdAndDelete(userId);
+  return await getAllUsers();
 }
 
 // Compare password
 async function comparePassword(user, password) {
+  // If user object comes from Mongoose, it might have comparePassword method
+  // But since we spread toObject() in findUserByEmail, we lost the methods.
+  // So we use bcrypt directly on the hash.
   return await bcrypt.compare(password, user.password);
 }
 
 // Change password
 async function changePassword(userId, newPassword) {
-  const users = await readUsers();
-  const index = users.findIndex(u => u.id === userId);
-  
-  if (index === -1) {
+  const user = await User.findById(userId);
+  if (!user) {
     throw new Error('User not found');
   }
-
-  const hashedPassword = await bcrypt.hash(newPassword, 8);
-  users[index].password = hashedPassword;
-  
-  await writeUsers(users);
-  await writeUsers(users);
+  user.password = newPassword; // Pre-save hook will hash
+  await user.save();
   return true;
 }
 
 // Update user details
 async function updateUser(userId, updates) {
-  const users = await readUsers();
-  const index = users.findIndex(u => u.id === userId);
-  
-  if (index === -1) {
+  const user = await User.findById(userId);
+  if (!user) {
     throw new Error('User not found');
   }
 
-  const user = users[index];
-
-  // Check if email is being updated and if it's unique
+  // Check email uniqueness if changing
   if (updates.email && updates.email !== user.email) {
-    if (users.find(u => u.email === updates.email)) {
+    const existing = await User.findOne({ email: updates.email });
+    if (existing) {
       throw new Error('Email already exists');
     }
   }
 
-  // Update fields (excluding critical ones like id, password unless specific flow)
-  const updatedUser = {
-    ...user,
-    name: updates.name || user.name,
-    mobile: updates.mobile || user.mobile,
-    photo: updates.photo !== undefined ? updates.photo : user.photo,
-    email: updates.email || user.email
-  };
+  if (updates.name) user.name = updates.name;
+  if (updates.mobile) user.mobile = updates.mobile;
+  if (updates.email) user.email = updates.email;
+  if (updates.photo !== undefined) user.photo = updates.photo;
 
-  users[index] = updatedUser;
-  await writeUsers(users);
-  
+  await user.save();
+
   return {
-    id: updatedUser.id,
-    name: updatedUser.name,
-    email: updatedUser.email,
-    mobile: updatedUser.mobile,
-    role: updatedUser.role,
-    photo: updatedUser.photo
+    ...user.toObject(),
+    id: user._id.toString()
   };
 }
 

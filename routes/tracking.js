@@ -81,10 +81,10 @@ router.get('/', async (req, res) => {
   try {
     const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
     
-    // Auto-generate click_id if missing (essential for tracking)
-    // If input is empty OR literal macro placeholder (common in manual testing), generate new ID
-    const shouldGenerateId = !click_id || click_id === '{click_id}' || click_id === '%7Bclick_id%7D';
-    const finalClickId = shouldGenerateId ? new mongoose.Types.ObjectId().toString() : click_id;
+    // Auto-generate click_id if missing or placeholder (essential for tracking)
+    // Regex matches any '{', '}', or '%' characters, effectively catching {click_id}, %7Bclick_id%7D, etc.
+    const isInvalidId = !click_id || /[\{\}\%]/.test(click_id);
+    const finalClickId = isInvalidId ? new mongoose.Types.ObjectId().toString() : click_id;
 
     // Normalize source
     const finalSource = source || source_id || '';

@@ -62,6 +62,7 @@ router.get('/', async (req, res) => {
     const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
     
     // Auto-generate click_id if missing (essential for tracking)
+    // This ensures EVERY click has an ID, even if not provided by source
     const finalClickId = click_id || new mongoose.Types.ObjectId().toString();
 
     // Normalize source
@@ -71,6 +72,8 @@ router.get('/', async (req, res) => {
     // CASE 1: CONVERSION POSTBACK (Has Payout)
     // ==========================================
     if (payout) {
+        // For conversion, we log what we received. 
+        // Note: We use the received click_id (or final if none, though unlikely to match)
         console.log(`Received conversion: camp=${camp_id}, pub=${publisher_id}, click=${click_id}, source=${finalSource}, payout=${payout}`);
 
         const params = {
@@ -133,12 +136,13 @@ router.get('/', async (req, res) => {
     // CASE 2: CLICK REDIRECTION (No Payout)
     // ==========================================
     else if (camp_id) {
-        console.log(`Received click: camp=${camp_id}, pub=${publisher_id}, click_id=${click_id}`);
+        // USE FINALCLICKID HERE
+        console.log(`Received click: camp=${camp_id}, pub=${publisher_id}, click_id=${finalClickId}`);
 
-        // Log Click (Async)
+        // Log Click (Async) with FINALCLICKID
         try {
             Click.create({
-                click_id: click_id || '',
+                click_id: finalClickId,
                 camp_id: camp_id,
                 publisher_id: publisher_id || '',
                 source: finalSource,
@@ -181,9 +185,9 @@ router.get('/', async (req, res) => {
         }
 
         // Prepare macros for replacement
-        // Note: For clicks, we pass through whatever we received
+        // Note: For clicks, we pass through whatever we received OR generated
         const params = {
-            click_id: click_id || '',
+            click_id: finalClickId,  // <--- CRITICAL FIX: Use generated ID
             payout: '', // No payout on click
             camp_id: camp_id,
             publisher_id: publisher_id || '',

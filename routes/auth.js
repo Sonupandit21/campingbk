@@ -7,6 +7,12 @@ const { findUserByEmail, createUser, comparePassword } = require('../utils/userS
 router.post('/register', async (req, res) => {
   try {
     const { name, mobile, email, password, photo } = req.body;
+
+    // Check if DB is connected
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database service unavailable. Please check server logs.' });
+    }
     
     // Create new user
     const user = await createUser({ name, mobile, email, password, photo });
@@ -14,7 +20,7 @@ router.post('/register', async (req, res) => {
     // Create token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'secret', // Fallback for dev
       { expiresIn: '24h' }
     );
 
@@ -27,7 +33,15 @@ router.post('/register', async (req, res) => {
     if (error.message === 'Email already exists') {
       return res.status(400).json({ error: error.message });
     }
-    res.status(500).json({ error: 'Server error during registration' });
+
+    if (error.message.includes('buffering timed out') || error.message.includes('Timeout')) {
+       return res.status(503).json({ 
+         error: 'Database Timeout. CAUSE: MongoDB IP Whitelist Block.', 
+         details: 'Go to MongoDB Atlas -> Network Access -> Add IP Address -> Allow Access From Anywhere (0.0.0.0/0)' 
+       });
+    }
+
+    res.status(500).json({ error: 'Server error during registration', details: error.message });
   }
 });
 

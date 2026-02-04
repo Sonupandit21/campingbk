@@ -161,7 +161,7 @@ router.get('/', async (req, res) => {
         if (!campaign) {
             const allCampaigns = await Campaign.find({}); // Optimization: select only needed fields? .select('id defaultUrl overrideUrl')
             // Match _id or potential 'id' field loosely
-            campaign = allCampaigns.find(c => c._id.toString() == camp_id || c.id == camp_id);
+            campaign = allCampaigns.find(c => c._id.toString() == camp_id || c.campaignId == camp_id || c.id == camp_id);
         }
 
         if (!campaign) {

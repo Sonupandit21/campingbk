@@ -6,17 +6,25 @@ async function getAllCampaigns() {
   const campaigns = await Campaign.find().sort({ createdAt: -1 });
   return campaigns.map(c => ({
     ...c.toObject(),
-    id: c._id.toString() // Ensure id is available
+    id: c.campaignId || c._id.toString() // Prefer sequential ID
   }));
 }
 
 // Create new campaign
 async function createCampaign(campaignData) {
-  const campaign = new Campaign(campaignData);
+  // Auto-increment logic
+  const lastCampaign = await Campaign.findOne().sort({ campaignId: -1 });
+  const nextId = lastCampaign && lastCampaign.campaignId ? lastCampaign.campaignId + 1 : 1;
+
+  const campaign = new Campaign({
+    ...campaignData,
+    campaignId: nextId
+  });
+
   await campaign.save();
   return {
     ...campaign.toObject(),
-    id: campaign._id.toString()
+    id: campaign.campaignId
   };
 }
 

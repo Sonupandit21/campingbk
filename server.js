@@ -7,7 +7,9 @@ const app = express();
 const mongoose = require('mongoose');
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000 // Fail after 5 seconds instead of 10
+})
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
@@ -96,7 +98,7 @@ app.get('/api/health', async (req, res) => {
 
 // Base route
 app.get('/', (req, res) => {
-  res.send('FullPanel Backend API is running');
+  res.send('FullPanel Backend API is running (v2 - DB Fix)');
 });
 
 // Error handling middleware

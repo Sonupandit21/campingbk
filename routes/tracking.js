@@ -8,20 +8,40 @@ const { getPostbackConfig } = require('../utils/postbackStore');
 const { getAllPublishers } = require('../utils/publisherStore');
 
 // Helper to replace macros like {click_id}, {source} with actual values
+// Helper to replace macros like {click_id}, {source} with actual values
 const replaceMacros = (url, params) => {
     if (!url) return '';
-    return url
-        .split('{click_id}').join(params.click_id || '')
-        .split('{payout}').join(params.payout || '')
-        .split('{camp_id}').join(params.camp_id || '')
-        .split('{publisher_id}').join(params.publisher_id || '')
-        .split('{source}').join(params.source || '')
-        .split('{source_id}').join(params.source || '') // Alias
-        .split('{gaid}').join(params.gaid || '')
-        .split('{idfa}').join(params.idfa || '')
-        .split('{app_name}').join(params.app_name || '')
-        .split('{p1}').join(params.p1 || '')
-        .split('{p2}').join(params.p2 || '');
+    console.log(`[MacroReplace] Input: ${url} | ClickID: ${params.click_id}`);
+    
+    let processedUrl = url;
+
+    // Map of keys to values
+    const replacements = {
+        '{click_id}': params.click_id || '',
+        '{payout}': params.payout || '',
+        '{camp_id}': params.camp_id || '',
+        '{publisher_id}': params.publisher_id || '',
+        '{source}': params.source || '',
+        '{source_id}': params.source || '',
+        '{gaid}': params.gaid || '',
+        '{idfa}': params.idfa || '',
+        '{app_name}': params.app_name || '',
+        '{p1}': params.p1 || '',
+        '{p2}': params.p2 || ''
+    };
+
+    // Replace both standard and URL-encoded versions
+    for (const [key, value] of Object.entries(replacements)) {
+        // Standard {key}
+        processedUrl = processedUrl.split(key).join(value);
+        
+        // Encoded %7Bkey%7D (case insensitive usually not needed for hex, but key content might be)
+        const encodedKey = key.replace('{', '%7B').replace('}', '%7D');
+        processedUrl = processedUrl.split(encodedKey).join(value);
+    }
+
+    console.log(`[MacroReplace] Output: ${processedUrl}`);
+    return processedUrl;
 };
 
 // Helper to send postback with retry logic

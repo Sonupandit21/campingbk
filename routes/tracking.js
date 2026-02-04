@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const Campaign = require('../models/Campaign');
 const Click = require('../models/Click');
 const Conversion = require('../models/Conversion');
-const { getPostbackConfig } = require('../utils/config');
+const { getPostbackConfig } = require('../utils/postbackStore');
 const { getAllPublishers } = require('../utils/publisherStore');
 
 // Helper to replace macros like {click_id}, {source} with actual values

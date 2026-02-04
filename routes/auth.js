@@ -50,7 +50,8 @@ router.post('/login', async (req, res) => {
     const User = require('../models/User'); // Assuming User model exists
     const bcrypt = require('bcryptjs'); // Assuming bcryptjs is used for password hashing
 
-    const user = await User.findOne({ email });
+    // Ensure email is lowercased to match schema
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }

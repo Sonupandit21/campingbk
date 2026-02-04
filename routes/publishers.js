@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
     res.json(publishers);
   } catch (error) {
     console.error('Get publishers error:', error);
-    res.status(500).json({ error: 'Failed to fetch publishers' });
+    res.status(500).json({ error: 'Failed to fetch publishers', details: error.message });
   }
 });
 

@@ -79,7 +79,8 @@ router.get('/users', async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    // Return empty array to prevent frontend crash when DB is disconnected
+    res.json([]);
   }
 });
 

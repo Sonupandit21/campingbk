@@ -8,6 +8,10 @@ router.post('/register', async (req, res) => {
   try {
     const { name, mobile, email, password, photo } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
     // Check if DB is connected
     const mongoose = require('mongoose');
     if (mongoose.connection.readyState !== 1) {

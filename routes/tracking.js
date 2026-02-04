@@ -61,6 +61,9 @@ router.get('/', async (req, res) => {
   try {
     const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
     
+    // Auto-generate click_id if missing (essential for tracking)
+    const finalClickId = click_id || new mongoose.Types.ObjectId().toString();
+
     // Normalize source
     const finalSource = source || source_id || '';
 

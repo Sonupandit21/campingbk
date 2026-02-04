@@ -82,8 +82,9 @@ router.get('/', async (req, res) => {
     const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
     
     // Auto-generate click_id if missing (essential for tracking)
-    // This ensures EVERY click has an ID, even if not provided by source
-    const finalClickId = click_id || new mongoose.Types.ObjectId().toString();
+    // If input is empty OR literal macro placeholder (common in manual testing), generate new ID
+    const shouldGenerateId = !click_id || click_id === '{click_id}' || click_id === '%7Bclick_id%7D';
+    const finalClickId = shouldGenerateId ? new mongoose.Types.ObjectId().toString() : click_id;
 
     // Normalize source
     const finalSource = source || source_id || '';

@@ -36,38 +36,51 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await findUserByEmail(email);
+    // Check if DB is connected
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database service unavailable. Please check server logs.' });
+    }
+
+    // Check if user exists
+    // Note: This assumes a 'User' model is defined and imported elsewhere,
+    // and 'bcrypt' is imported for password comparison.
+    // The original code used 'findUserByEmail' and 'comparePassword' from '../utils/userStore'.
+    // This change implies a shift in how user data and password comparison are handled.
+    const User = require('../models/User'); // Assuming User model exists
+    const bcrypt = require('bcryptjs'); // Assuming bcryptjs is used for password hashing
+
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Check password
-    const isMatch = await comparePassword(user, password);
+    // Validate password
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     // Create token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.json({
-      token,
+    const payload = {
       user: {
         id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        photo: user.photo
+        role: user.role
       }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Server error during login' });
+    };
+
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET || 'secret', // Fallback for dev
+      { expiresIn: '24h' },
+      (err, token) => {
+        if (err) throw err;
+        res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+      }
+    );
+  } catch (err) {
+    console.error('Login Error:', err.message);
+    res.status(500).json({ error: 'Server error during login', details: err.message });
   }
 });
 

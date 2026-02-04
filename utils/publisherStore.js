@@ -15,6 +15,11 @@ async function createPublisher(publisherData) {
   const lastPublisher = await Publisher.findOne().sort({ publisherId: -1 });
   const nextId = lastPublisher && lastPublisher.publisherId ? lastPublisher.publisherId + 1 : 1;
 
+  // Auto-generate password if missing
+  if (!publisherData.password) {
+    publisherData.password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+  }
+
   const publisher = new Publisher({
     ...publisherData,
     publisherId: nextId

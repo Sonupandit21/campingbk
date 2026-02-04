@@ -62,6 +62,38 @@ app.use('/api/track', trackingRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/stats', require('./routes/stats'));
 
+// Debug/Health Route
+app.get('/api/health', async (req, res) => {
+  const mongoose = require('mongoose');
+  const dbState = mongoose.connection.readyState;
+  const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  
+  let dbError = null;
+  try {
+    // Try a simple operation
+    if (dbState === 1) {
+       await mongoose.connection.db.admin().ping();
+    }
+  } catch (e) {
+    dbError = e.message;
+  }
+
+  res.json({
+    status: 'ok',
+    timestamp: new Date(),
+    database: {
+      state: states[dbState] || 'unknown',
+      code: dbState,
+      error: dbError,
+      host: mongoose.connection.host
+    },
+    env: {
+      hasMongoUri: !!process.env.MONGODB_URI,
+      nodeEnv: process.env.NODE_ENV
+    }
+  });
+});
+
 // Base route
 app.get('/', (req, res) => {
   res.send('FullPanel Backend API is running');

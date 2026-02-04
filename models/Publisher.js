@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const publisherSchema = new mongoose.Schema({
+  publisherId: {
+    type: Number,
+    unique: true
+  },
   fullName: {
     type: String,
     required: true

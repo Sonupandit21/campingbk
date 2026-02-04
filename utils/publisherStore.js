@@ -5,17 +5,25 @@ async function getAllPublishers() {
   const publishers = await Publisher.find().sort({ createdAt: -1 });
   return publishers.map(p => ({
     ...p.toObject(),
-    id: p._id.toString()
+    id: p.publisherId || p._id.toString() // Prefer sequential ID
   }));
 }
 
 // Create new publisher
 async function createPublisher(publisherData) {
-  const publisher = new Publisher(publisherData);
+  // Auto-increment logic
+  const lastPublisher = await Publisher.findOne().sort({ publisherId: -1 });
+  const nextId = lastPublisher && lastPublisher.publisherId ? lastPublisher.publisherId + 1 : 1;
+
+  const publisher = new Publisher({
+    ...publisherData,
+    publisherId: nextId
+  });
+  
   await publisher.save();
   return {
     ...publisher.toObject(),
-    id: publisher._id.toString()
+    id: publisher.publisherId
   };
 }
 

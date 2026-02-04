@@ -45,10 +45,15 @@ async function updateCampaign(id, campaignData) {
 
 // Delete campaign
 async function deleteCampaign(id) {
-  await Campaign.findByIdAndDelete(id);
-  // Return empty array or filtered list if expected, existing returned new list
-  // The existing logic returned the new list of campaigns.
-  // To match that contract:
+  if (!mongoose.Types.ObjectId.isValid(id) && !isNaN(id)) {
+    // It's a numeric ID (campaignId)
+    await Campaign.findOneAndDelete({ campaignId: Number(id) });
+  } else {
+    // It's likely a MongoDB _id
+    await Campaign.findByIdAndDelete(id);
+  }
+  
+  // Return empty array or filtered list if expected
   return await getAllCampaigns();
 }
 

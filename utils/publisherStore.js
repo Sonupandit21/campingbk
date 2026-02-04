@@ -41,7 +41,11 @@ async function updatePublisher(id, publisherData) {
 
 // Delete publisher
 async function deletePublisher(id) {
-  await Publisher.findByIdAndDelete(id);
+  if (!mongoose.Types.ObjectId.isValid(id) && !isNaN(id)) {
+    await Publisher.findOneAndDelete({ publisherId: Number(id) });
+  } else {
+    await Publisher.findByIdAndDelete(id);
+  }
   // Return updated list to match old contract
   return await getAllPublishers();
 }

@@ -2,7 +2,7 @@ const Publisher = require('../models/Publisher');
 
 // Get all publishers
 async function getAllPublishers() {
-  const publishers = await Publisher.find().sort({ createdAt: -1 });
+  const publishers = await Publisher.find().sort({ publisherId: 1 });
   return publishers.map(p => ({
     ...p.toObject(),
     id: p.publisherId || p._id.toString() // Prefer sequential ID

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 // Get all campaigns
 async function getAllCampaigns() {
-  const campaigns = await Campaign.find().sort({ createdAt: -1 });
+  const campaigns = await Campaign.find().sort({ campaignId: 1 });
   return campaigns.map(c => ({
     ...c.toObject(),
     id: c.campaignId || c._id.toString() // Prefer sequential ID

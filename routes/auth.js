@@ -80,6 +80,14 @@ router.post('/login', async (req, res) => {
     );
   } catch (err) {
     console.error('Login Error:', err.message);
+    
+    if (err.message.includes('buffering timed out') || err.message.includes('Timeout')) {
+       return res.status(503).json({ 
+         error: 'Database Timeout. CAUSE: MongoDB IP Whitelist Block.', 
+         details: 'Go to MongoDB Atlas -> Network Access -> Add IP Address -> Allow Access From Anywhere (0.0.0.0/0)' 
+       });
+    }
+
     res.status(500).json({ error: 'Server error during login', details: err.message });
   }
 });

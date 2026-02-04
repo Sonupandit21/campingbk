@@ -5,6 +5,7 @@ const { findUserByEmail, createUser, comparePassword } = require('../utils/userS
 
 // Register
 router.post('/register', async (req, res) => {
+  let step = 'init';
   try {
     const { name, mobile, email, password, photo } = req.body;
 
@@ -13,15 +14,18 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if DB is connected
+    step = 'dbCheck';
     const mongoose = require('mongoose');
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Database service unavailable. Please check server logs.' });
     }
     
     // Create new user
+    step = 'createUser';
     const user = await createUser({ name, mobile, email, password, photo });
 
     // Create token
+    step = 'generateToken';
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET || 'secret', // Fallback for dev
@@ -33,7 +37,7 @@ router.post('/register', async (req, res) => {
       user
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error(`Register error at ${step}:`, error);
     if (error.message === 'Email already exists' || error.code === 11000) {
       return res.status(400).json({ error: 'Email already exists' });
     }
@@ -45,7 +49,12 @@ router.post('/register', async (req, res) => {
        });
     }
 
-    res.status(500).json({ error: 'Server error during registration', details: error.message });
+    res.status(500).json({ 
+      error: 'Registration failed', 
+      step: step,
+      details: error.message,
+      name: error.name
+    });
   }
 });
 

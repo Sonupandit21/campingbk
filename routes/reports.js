@@ -6,36 +6,12 @@ const Conversion = require('../models/Conversion');
 const Campaign = require('../models/Campaign');
 const Publisher = require('../models/Publisher');
 
-const auth = require('../middleware/auth');
-
-router.get('/', auth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { startDate, endDate, campaignId, publisherId } = req.query;
 
     // Base match criteria
     const match = {};
-
-    // Role-based security
-    if (req.user.role !== 'admin') {
-        const userCampaigns = await Campaign.find({ createdBy: req.user.id }).select('campaignId');
-        const userCampIds = userCampaigns.map(c => String(c.campaignId));
-        
-        if (userCampIds.length === 0) {
-             return res.json([]);
-        }
-
-        if (campaignId) {
-            if (!userCampIds.includes(String(campaignId))) {
-                 return res.json([]);
-            }
-            match.camp_id = campaignId;
-        } else {
-            match.camp_id = { $in: userCampIds };
-        }
-    } else {
-        if (campaignId) match.camp_id = campaignId;
-    }
-
     if (startDate || endDate) {
       match.timestamp = {};
       if (startDate) match.timestamp.$gte = new Date(startDate);
@@ -46,6 +22,8 @@ router.get('/', auth, async (req, res) => {
       }
     }
     
+    // Note: Click/Conversion models store IDs as Strings based on current schema
+    if (campaignId) match.camp_id = campaignId;
     if (publisherId) match.publisher_id = publisherId;
 
     // Define aggregation pipeline for Clicks

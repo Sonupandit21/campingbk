@@ -6,8 +6,8 @@ const Click = require('../models/Click');
 const Conversion = require('../models/Conversion');
 const { getPostbackConfig } = require('../utils/postbackStore');
 const { getAllPublishers } = require('../utils/publisherStore');
+const { fireTrackierPostback } = require('../utils/trackier');
 
-// Helper to replace macros like {click_id}, {source} with actual values
 // Helper to replace macros like {click_id}, {source} with actual values
 const replaceMacros = (url, params) => {
     if (!url) return '';
@@ -76,11 +76,111 @@ const sendPostback = async (url, type) => {
     console.error(`${type} postback failed after ${maxRetries} attempts.`);
 };
 
-// Tracking and Postback Endpoint
-// Shared tracking logic
+// ==========================================
+// HANDLE CONVERSION (Inbound Postback)
+// ==========================================
+const handleConversion = async (req, res) => {
+    try {
+        const { click_id, payout } = req.query;
+
+        // 1. Validation
+        if (!click_id) {
+            return res.status(400).json({ error: 'Missing click_id' });
+        }
+
+        console.log(`[Conversion] Received for click_id: ${click_id}, payout: ${payout}`);
+
+        // 2. Validate Click Exists in DB
+        const click = await Click.findOne({ click_id });
+        if (!click) {
+            console.error(`[Conversion] Click not found for ID: ${click_id}`);
+            return res.status(404).json({ error: 'Invalid click_id' });
+        }
+
+        // 3. Prevent Duplicates
+        // Using findOne is simple. For high concurrency, checking existing might have race conditions 
+        // without a unique index, but good enough for now.
+        const existingConv = await Conversion.findOne({ click_id });
+        if (existingConv) {
+            console.warn(`[Conversion] Duplicate conversion for click_id: ${click_id}`);
+            // Return 200 to indicate we processed it (idempotency), or 409 conflict.
+            // Advertisers often retry postbacks, so 200 is safer to stop retries.
+            return res.status(200).json({ message: 'Conversion already recorded' });
+        }
+
+        // 4. Resolve Details from Click
+        const { camp_id, publisher_id, source, gaid, idfa, app_name, p1, p2 } = click;
+        const validPayout = parseFloat(payout) || 0;
+
+        // 5. Save Conversion
+        const newConversion = await Conversion.create({
+            click_id,
+            camp_id,
+            publisher_id,
+            payout: validPayout,
+            source,
+            gaid,
+            idfa,
+            app_name,
+            p1,
+            p2,
+            status: 'approved'
+        });
+        console.log('[Conversion] Saved to DB');
+
+        // 6. Fire Trackier S2S Postback
+        // Background async fire - don't await strictly if we want fast response, but good to ensure fire triggers
+        fireTrackierPostback(click_id, validPayout).catch(err => console.error('[Trackier] Error firing postback:', err));
+
+        // 7. Fire Legacy Postbacks (Global & Publisher)
+        // Construct params for macro replacement
+        const params = {
+            click_id,
+            payout: validPayout,
+            camp_id,
+            publisher_id,
+            source,
+            gaid,
+            idfa,
+            app_name,
+            p1,
+            p2
+        };
+
+        // Global Postback
+        getPostbackConfig().then(config => {
+            if (config.url) {
+                const postbackUrl = replaceMacros(config.url, params);
+                sendPostback(postbackUrl, 'Global').catch(err => console.error('Global postback fatal error:', err));
+            }
+        });
+
+        // Publisher Postback
+        if (publisher_id) {
+            getAllPublishers().then(publishers => {
+                // Loose matching for ID
+                const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
+                if (publisher && publisher.postbackUrl) {
+                    const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
+                    sendPostback(pubPostbackUrl, `Publisher ${publisher.id}`).catch(err => console.error('Publisher postback fatal error:', err));
+                }
+            });
+        }
+
+        return res.status(200).json({ success: true, message: 'Conversion recorded successfully' });
+
+    } catch (error) {
+        console.error('[Conversion] Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ==========================================
+// HANDLE CLICK (Tracking & Redirect)
+// ==========================================
 const handleTracking = async (req, res) => {
   try {
-    const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
+    const { camp_id, publisher_id, click_id, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
     
     // Auto-generate click_id if missing or placeholder (essential for tracking)
     // Regex matches any '{', '}', or '%' characters, effectively catching {click_id}, %7Bclick_id%7D, etc.
@@ -91,82 +191,9 @@ const handleTracking = async (req, res) => {
     const finalSource = source || source_id || '';
 
     // ==========================================
-    // CASE 1: CONVERSION POSTBACK (Has Payout)
-    // ==========================================
-    // ==========================================
-    // CASE 1: CONVERSION POSTBACK (Has Payout)
-    // ==========================================
-    // ==========================================
-    // CASE 1: CONVERSION POSTBACK (Has Payout)
-    // ==========================================
-    // ==========================================
-    // CASE 1: CONVERSION POSTBACK (Has Payout)
-    // ==========================================
-    if (payout) {
-        // For conversion, we log what we received. 
-        // Note: We use the received click_id (or final if none, though unlikely to match)
-        console.log(`Received conversion: camp=${camp_id}, pub=${publisher_id}, click=${click_id}, source=${finalSource}, payout=${payout}`);
-
-        const params = {
-            click_id: click_id || '',
-            payout: payout || '',
-            camp_id: camp_id || '',
-            publisher_id: publisher_id || '',
-            source: finalSource,
-            gaid: gaid || '',
-            idfa: idfa || '',
-            app_name: app_name || '',
-            p1: p1 || '',
-            p2: p2 || ''
-        };
-
-        // 1. Log conversion (Persist to DB)
-        try {
-            await Conversion.create({
-                click_id: params.click_id,
-                camp_id: params.camp_id,
-                publisher_id: params.publisher_id,
-                payout: parseFloat(params.payout) || 0,
-                source: params.source,
-                gaid: params.gaid,
-                idfa: params.idfa,
-                app_name: params.app_name,
-                p1: params.p1,
-                p2: params.p2,
-                status: 'approved'
-            });
-            console.log('Conversion saved to DB');
-        } catch (dbError) {
-            console.error('Failed to save conversion to DB:', dbError);
-        }
-
-        // 2. Fire Global Postback if configured
-        const config = await getPostbackConfig();
-        if (config.url) {
-          const postbackUrl = replaceMacros(config.url, params);
-          sendPostback(postbackUrl, 'Global').catch(err => console.error('Global postback fatal error:', err));
-        }
-
-        // 3. Fire Publisher Specific Postback if configured
-        if (publisher_id) {
-            const publishers = await getAllPublishers();
-            
-            // Loose matching for ID (string vs number)
-            const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
-
-            if (publisher && publisher.postbackUrl) {
-                const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
-                sendPostback(pubPostbackUrl, `Publisher ${publisher.id}`).catch(err => console.error('Publisher postback fatal error:', err));
-            }
-        }
-
-        return res.status(200).json({ success: true, message: 'Conversion recorded' });
-    }
-
-    // ==========================================
     // CASE 2: CLICK REDIRECTION (No Payout)
     // ==========================================
-    else if (camp_id) {
+    if (camp_id) {
         // USE FINALCLICKID HERE
         console.log(`Received click: camp=${camp_id}, pub=${publisher_id}, click_id=${finalClickId}`);
 
@@ -251,10 +278,6 @@ const handleTracking = async (req, res) => {
 
 // Tracking and Postback Endpoints
 router.get('/', handleTracking);
-router.get('/conversion', handleTracking);
+router.get('/conversion', handleConversion); // Dedicated conversion endpoint
 
 module.exports = router;
-
-
-
-

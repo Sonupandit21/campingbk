@@ -89,8 +89,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid password' });
     }
 
-    // Force admin role for the main admin user (fallback)
-    const role = (user.email === 'admin@admin.com') ? 'admin' : user.role;
+    // Force admin role for the main admin user, and ram@gmail.com (fallback)
+    const role = (user.email === 'admin@admin.com' || user.email === 'ram@gmail.com') ? 'admin' : user.role;
 
     // Create token
     const payload = {

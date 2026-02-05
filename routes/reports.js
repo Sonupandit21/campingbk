@@ -128,7 +128,12 @@ router.get('/', async (req, res) => {
     let pubMap = {};
 
     try {
-        const distinctCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id).filter(Boolean))];
+        // Safe cast to Number for campaignId lookup
+        const rawCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id).filter(Boolean))];
+        const distinctCampIds = rawCampIds
+            .map(id => Number(id))
+            .filter(n => !isNaN(n));
+
         const distinctPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id).filter(Boolean))];
 
         const campaigns = await Campaign.find({

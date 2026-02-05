@@ -127,6 +127,7 @@ router.get('/', async (req, res) => {
     let campMap = {};
     let pubMap = {};
 
+    try {
         const rawCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id).filter(Boolean))];
         const distinctCampIds = rawCampIds
             .map(id => Number(id))

@@ -81,14 +81,14 @@ const sendPostback = async (url, type) => {
 // ==========================================
 const handleConversion = async (req, res) => {
     try {
-        const { click_id, payout, camp_id } = req.query;
+        const { click_id, payout, camp_id: queryCampId } = req.query;
 
         // 1. Validation
         if (!click_id) {
             return res.status(400).json({ error: 'Missing click_id' });
         }
 
-        console.log(`[Conversion] Received for click_id: ${click_id}, payout: ${payout}, camp_id: ${camp_id || 'N/A'}`);
+        console.log(`[Conversion] Received for click_id: ${click_id}, payout: ${payout}, camp_id: ${queryCampId || 'N/A'}`);
 
         // 2. Validate Click Exists in DB
         const click = await Click.findOne({ click_id });

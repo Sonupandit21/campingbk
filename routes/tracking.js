@@ -170,7 +170,7 @@ const handleTracking = async (req, res) => {
             }
         }
 
-        return res.status(200).json({ success: true, message: 'Conversion recorded' });
+        return res.status(200).json({ success: true, message: 'QUEUED' });
     }
 
     // ==========================================

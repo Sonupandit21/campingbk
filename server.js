@@ -98,8 +98,13 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Base route
-app.get('/', (req, res) => {
-  res.send('FullPanel Backend API is running (v3 - Registration Fix)');
+// Serve static files from the React frontend app
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../frontend/client/build')));
+
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/client/build', 'index.html'));
 });
 
 // Error handling middleware

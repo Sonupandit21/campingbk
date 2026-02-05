@@ -9,22 +9,32 @@ const Publisher = require('../models/Publisher');
 router.get('/', async (req, res) => {
   try {
     const { startDate, endDate, campaignId, publisherId } = req.query;
+    console.log(`[Reports] Request: startDate=${startDate}, endDate=${endDate}, camp=${campaignId}, pub=${publisherId}`);
 
     // Base match criteria
     const match = {};
-    if (startDate || endDate) {
-      match.timestamp = {};
-      if (startDate) match.timestamp.$gte = new Date(startDate);
-      if (endDate) {
+    if (startDate && startDate !== 'null' && startDate !== 'undefined') {
+       match.timestamp = match.timestamp || {};
+       match.timestamp.$gte = new Date(startDate);
+    }
+    
+    if (endDate && endDate !== 'null' && endDate !== 'undefined') {
+        match.timestamp = match.timestamp || {};
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
         match.timestamp.$lte = end;
-      }
     }
     
     // Note: Click/Conversion models store IDs as Strings based on current schema
-    if (campaignId) match.camp_id = campaignId;
-    if (publisherId) match.publisher_id = publisherId;
+    if (campaignId && campaignId !== 'null' && campaignId !== 'undefined' && campaignId !== 'All Campaigns') {
+        match.camp_id = campaignId;
+    }
+
+    if (publisherId && publisherId !== 'null' && publisherId !== 'undefined' && publisherId !== 'All Publishers') {
+         match.publisher_id = publisherId;
+    }
+
+    console.log('[Reports] Match Query:', JSON.stringify(match, null, 2));
 
     // Define aggregation pipeline for Clicks
     const clickPipeline = [

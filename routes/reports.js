@@ -127,12 +127,13 @@ router.get('/', async (req, res) => {
     let campMap = {};
     let pubMap = {};
 
-    try {
-        // Safe cast to Number for campaignId lookup
         const rawCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id).filter(Boolean))];
         const distinctCampIds = rawCampIds
             .map(id => Number(id))
             .filter(n => !isNaN(n));
+        
+        console.log('[Reports] Raw Camp IDs:', rawCampIds);
+        console.log('[Reports] Distinct Camp IDs (for query):', distinctCampIds);
 
         const rawPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id).filter(Boolean))];
         const distinctPubIds = rawPubIds
@@ -146,9 +147,17 @@ router.get('/', async (req, res) => {
         const publishers = await Publisher.find({
             publisherId: { $in: distinctPubIds }
         }).select('publisherId fullName');
+        
+        console.log(`[Reports] Found ${campaigns.length} campaigns and ${publishers.length} publishers`);
 
-        campaigns.forEach(c => campMap[c.campaignId] = c.title);
-        publishers.forEach(p => pubMap[p.publisherId] = p.fullName);
+        campaigns.forEach(c => {
+            campMap[String(c.campaignId)] = c.title; // Force string key
+        });
+        publishers.forEach(p => {
+             pubMap[String(p.publisherId)] = p.fullName; // Force string key
+        });
+        
+        console.log('[Reports] CampMap Keys:', Object.keys(campMap));
     } catch (lookupErr) {
         console.error('[Reports] Name lookup error (non-fatal):', lookupErr);
     }

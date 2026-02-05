@@ -97,37 +97,22 @@ const handleTracking = async (req, res) => {
     // CASE 1: CONVERSION POSTBACK (Has Payout)
     // ==========================================
     if (payout) {
-        // Validation: click_id is mandatory
-        if (!click_id) {
-            console.warn('Conversion rejected: Missing click_id');
-            return res.status(400).json({ error: 'Missing click_id' });
-        }
+        // For conversion, we log what we received. 
+        // Note: We use the received click_id (or final if none, though unlikely to match)
+        console.log(`Received conversion: camp=${camp_id}, pub=${publisher_id}, click=${click_id}, source=${finalSource}, payout=${payout}`);
 
-        console.log(`Received conversion request: click_id=${click_id}, payout=${payout}`);
-
-        // Lookup Click
-        const originalClick = await Click.findOne({ click_id: click_id });
-
-        if (!originalClick) {
-            console.warn(`Conversion rejected: Click ID ${click_id} not found`);
-            return res.status(404).json({ error: 'Click ID not found' });
-        }
-
-        // Use VALIDATED data from the original click
         const params = {
-            click_id: originalClick.click_id, // Should match
+            click_id: click_id || '',
             payout: payout || '',
-            camp_id: originalClick.camp_id || '',
-            publisher_id: originalClick.publisher_id || '',
-            source: originalClick.source || '',
-            gaid: gaid || originalClick.gaid || '', // Fallback to current request if missing? Or strict? Let's allow enrichment.
-            idfa: idfa || originalClick.idfa || '',
-            app_name: app_name || originalClick.app_name || '',
-            p1: p1 || originalClick.p1 || '',
-            p2: p2 || originalClick.p2 || ''
+            camp_id: camp_id || '',
+            publisher_id: publisher_id || '',
+            source: finalSource,
+            gaid: gaid || '',
+            idfa: idfa || '',
+            app_name: app_name || '',
+            p1: p1 || '',
+            p2: p2 || ''
         };
-
-        console.log(`Validated conversion: camp=${params.camp_id}, pub=${params.publisher_id}, payout=${params.payout}`);
 
         // 1. Log conversion (Persist to DB)
         try {
@@ -147,7 +132,6 @@ const handleTracking = async (req, res) => {
             console.log('Conversion saved to DB');
         } catch (dbError) {
             console.error('Failed to save conversion to DB:', dbError);
-            // We continue to fire postbacks even if local DB save fails? Maybe.
         }
 
         // 2. Fire Global Postback if configured
@@ -158,11 +142,11 @@ const handleTracking = async (req, res) => {
         }
 
         // 3. Fire Publisher Specific Postback if configured
-        if (params.publisher_id) {
+        if (publisher_id) {
             const publishers = await getAllPublishers();
             
             // Loose matching for ID (string vs number)
-            const publisher = publishers.find(p => p.id == params.publisher_id || p.referenceId == params.publisher_id);
+            const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
 
             if (publisher && publisher.postbackUrl) {
                 const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
@@ -170,7 +154,7 @@ const handleTracking = async (req, res) => {
             }
         }
 
-        return res.status(200).json({ success: true, message: 'QUEUED' });
+        return res.status(200).json({ success: true, message: 'Conversion recorded' });
     }
 
     // ==========================================

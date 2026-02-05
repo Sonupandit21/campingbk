@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { getAllCampaigns, createCampaign, updateCampaign, deleteCampaign } = require('../utils/campaignStore');
+const auth = require('../middleware/auth');
 
 // Get all campaigns
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
-    const campaigns = await getAllCampaigns();
+    const filter = {};
+    if (req.user.role !== 'admin') {
+       filter.createdBy = req.user.id;
+    }
+    const campaigns = await getAllCampaigns(filter);
     res.json(campaigns);
   } catch (error) {
     console.error('Get campaigns error:', error);
@@ -14,7 +19,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create campaign
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const campaignData = req.body;
     
@@ -22,7 +27,7 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: 'Title and Default URL are required' });
     }
 
-    const newCampaign = await createCampaign(campaignData);
+    const newCampaign = await createCampaign(campaignData, req.user); // Pass user
     res.status(201).json(newCampaign);
   } catch (error) {
     console.error('Create campaign error:', error);
@@ -31,7 +36,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update campaign
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const campaignData = req.body;
@@ -47,7 +52,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete campaign
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     await deleteCampaign(id);

@@ -22,8 +22,13 @@ const campaignSchema = new mongoose.Schema({
     default: 'Active'
   },
   assignedPublishers: [{
-    type: String // We use String IDs for now to maintain compatibility with existing frontend/logic
-  }]
+    type: String 
+  }],
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null 
+  }
 }, {
   timestamps: true
 });

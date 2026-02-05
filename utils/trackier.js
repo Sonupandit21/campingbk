@@ -1,4 +1,4 @@
-const fetch = require('node-fetch'); // Ensure node-fetch is available or use global fetch in Node 18+
+// Native fetch is available in Node 18+
 
 const TRACKIER_BASE_URL = 'https://jjkjdnc.trackier.co/acquisition';
 

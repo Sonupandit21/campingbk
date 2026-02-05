@@ -15,7 +15,11 @@ router.get('/', async (req, res) => {
     if (startDate || endDate) {
       match.timestamp = {};
       if (startDate) match.timestamp.$gte = new Date(startDate);
-      if (endDate) match.timestamp.$lte = new Date(endDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        match.timestamp.$lte = end;
+      }
     }
     
     // Note: Click/Conversion models store IDs as Strings based on current schema

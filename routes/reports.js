@@ -134,7 +134,10 @@ router.get('/', async (req, res) => {
             .map(id => Number(id))
             .filter(n => !isNaN(n));
 
-        const distinctPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id).filter(Boolean))];
+        const rawPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id).filter(Boolean))];
+        const distinctPubIds = rawPubIds
+             .map(id => Number(id))
+             .filter(n => !isNaN(n));
 
         const campaigns = await Campaign.find({
             campaignId: { $in: distinctCampIds } 

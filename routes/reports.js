@@ -5,14 +5,39 @@ const Click = require('../models/Click');
 const Conversion = require('../models/Conversion');
 const Campaign = require('../models/Campaign');
 const Publisher = require('../models/Publisher');
+const auth = require('../middleware/auth');
 
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const { startDate, endDate, campaignId, publisherId } = req.query;
-    console.log(`[Reports] Request: startDate=${startDate}, endDate=${endDate}, camp=${campaignId}, pub=${publisherId}`);
+    console.log(`[Reports] Request from user ${req.user.id} (${req.user.role}): startDate=${startDate}, endDate=${endDate}, camp=${campaignId}, pub=${publisherId}`);
 
     // Base match criteria
     const match = {};
+
+    // Role-based security
+    if (req.user.role !== 'admin') {
+        // Find campaigns owned by this user
+        const userCampaigns = await Campaign.find({ createdBy: req.user.id }).select('campaignId');
+        const userCampIds = userCampaigns.map(c => String(c.campaignId));
+        
+        console.log(`[Reports] User ${req.user.id} owns campaigns: ${userCampIds}`);
+        
+        if (userCampIds.length === 0) {
+             return res.json([]);
+        }
+
+        // Force filter to only these campaigns
+        if (match.camp_id) {
+            // If they asked for a specific campaign, ensure they own it
+            if (!userCampIds.includes(String(match.camp_id))) {
+                 return res.json([]); // Unauthorized campaign
+            }
+        } else {
+            // Filter by all their campaigns
+            match.camp_id = { $in: userCampIds };
+        }
+    }
     if (startDate && startDate !== 'null' && startDate !== 'undefined') {
        match.timestamp = match.timestamp || {};
        match.timestamp.$gte = new Date(startDate);

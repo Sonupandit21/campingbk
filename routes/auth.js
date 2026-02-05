@@ -24,7 +24,7 @@ router.post('/register', async (req, res) => {
     
     // Create new user
     step = 'createUser';
-    const user = await createUser({ name, mobile, email, password, photo });
+    const user = await createUser({ name, mobile, email, password, photo, role});
 
     // Create token
     step = 'generateToken';
@@ -114,9 +114,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Get all users (count)
-router.get('/users', async (req, res) => {
+// Get all users (count) - ADMIN ONLY
+const auth = require('../middleware/auth');
+router.get('/users', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     const { getAllUsers } = require('../utils/userStore');
     const users = await getAllUsers();
     res.json(users);

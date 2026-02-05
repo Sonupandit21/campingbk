@@ -77,7 +77,8 @@ const sendPostback = async (url, type) => {
 };
 
 // Tracking and Postback Endpoint
-router.get('/', async (req, res) => {
+// Shared tracking logic
+const handleTracking = async (req, res) => {
   try {
     const { camp_id, publisher_id, click_id, payout, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
     
@@ -237,7 +238,11 @@ router.get('/', async (req, res) => {
     console.error('Tracking error:', error);
     res.status(500).json({ error: 'Tracking failed' });
   }
-});
+};
+
+// Tracking and Postback Endpoints
+router.get('/', handleTracking);
+router.get('/conversion', handleTracking);
 
 module.exports = router;
 

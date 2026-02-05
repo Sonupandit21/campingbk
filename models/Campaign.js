@@ -22,13 +22,8 @@ const campaignSchema = new mongoose.Schema({
     default: 'Active'
   },
   assignedPublishers: [{
-    type: String 
-  }],
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null // For existing campaigns created by admin/before migration
-  }
+    type: String // We use String IDs for now to maintain compatibility with existing frontend/logic
+  }]
 }, {
   timestamps: true
 });

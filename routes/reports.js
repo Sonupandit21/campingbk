@@ -5,61 +5,26 @@ const Click = require('../models/Click');
 const Conversion = require('../models/Conversion');
 const Campaign = require('../models/Campaign');
 const Publisher = require('../models/Publisher');
-const auth = require('../middleware/auth');
 
-router.get('/', auth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { startDate, endDate, campaignId, publisherId } = req.query;
-    console.log(`[Reports] Request from user ${req.user.id} (${req.user.role}): startDate=${startDate}, endDate=${endDate}, camp=${campaignId}, pub=${publisherId}`);
 
     // Base match criteria
     const match = {};
-
-    // Role-based security
-    if (req.user.role !== 'admin') {
-        // Find campaigns owned by this user
-        const userCampaigns = await Campaign.find({ createdBy: req.user.id }).select('campaignId');
-        const userCampIds = userCampaigns.map(c => String(c.campaignId));
-        
-        console.log(`[Reports] User ${req.user.id} owns campaigns: ${userCampIds}`);
-        
-        if (userCampIds.length === 0) {
-             return res.json([]);
-        }
-
-        // Force filter to only these campaigns
-        if (match.camp_id) {
-            // If they asked for a specific campaign, ensure they own it
-            if (!userCampIds.includes(String(match.camp_id))) {
-                 return res.json([]); // Unauthorized campaign
-            }
-        } else {
-            // Filter by all their campaigns
-            match.camp_id = { $in: userCampIds };
-        }
-    }
-    if (startDate && startDate !== 'null' && startDate !== 'undefined') {
-       match.timestamp = match.timestamp || {};
-       match.timestamp.$gte = new Date(startDate);
-    }
-    
-    if (endDate && endDate !== 'null' && endDate !== 'undefined') {
-        match.timestamp = match.timestamp || {};
+    if (startDate || endDate) {
+      match.timestamp = {};
+      if (startDate) match.timestamp.$gte = new Date(startDate);
+      if (endDate) {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
         match.timestamp.$lte = end;
+      }
     }
     
     // Note: Click/Conversion models store IDs as Strings based on current schema
-    if (campaignId && campaignId !== 'null' && campaignId !== 'undefined' && campaignId !== 'All Campaigns') {
-        match.camp_id = campaignId;
-    }
-
-    if (publisherId && publisherId !== 'null' && publisherId !== 'undefined' && publisherId !== 'All Publishers') {
-         match.publisher_id = publisherId;
-    }
-
-    console.log('[Reports] Match Query:', JSON.stringify(match, null, 2));
+    if (campaignId) match.camp_id = campaignId;
+    if (publisherId) match.publisher_id = publisherId;
 
     // Define aggregation pipeline for Clicks
     const clickPipeline = [
@@ -149,44 +114,33 @@ router.get('/', auth, async (req, res) => {
     // Enrich with Campaign and Publisher names
     // Fetch all needed campaigns and publishers first to minimize DB calls
     // (Optimization: In a huge system, we'd use $lookup in aggregation, but here separate query is fine for now)
-    let campMap = {};
-    let pubMap = {};
+    const distinctCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id))];
+    const distinctPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id))];
 
-    try {
-        const rawCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id).filter(Boolean))];
-        const distinctCampIds = rawCampIds
-            .map(id => Number(id))
-            .filter(n => !isNaN(n));
-        
-        console.log('[Reports] Raw Camp IDs:', rawCampIds);
-        console.log('[Reports] Distinct Camp IDs (for query):', distinctCampIds);
+    // We need to match string IDs to what's in DB. 
+    // Campaign model has `campaignId` (Number) and `_id`. 
+    // Clicks use `camp_id` as String.
+    // Let's try to find by both just in case, or assume they match the scheme used elsewhere.
+    // Based on previous contexts, `camp_id` in clicks seems to be the custom ID (e.g. "1").
+    
+    // Warning: If camp_id is stored as "1" in Click but 1 (Number) in Campaign, we need care.
+    // Let's assume loosely typed matching or explicit casting.
+    
+    const campaigns = await Campaign.find({
+        // Finding campaigns where campaignId matches
+        // We might need to cast to Number if they are stored as numbers
+         campaignId: { $in: distinctCampIds } 
+    }).select('campaignId title');
 
-        const rawPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id).filter(Boolean))];
-        const distinctPubIds = rawPubIds
-             .map(id => Number(id))
-             .filter(n => !isNaN(n));
+    const publishers = await Publisher.find({
+        publisherId: { $in: distinctPubIds }
+    }).select('publisherId fullName');
 
-        const campaigns = await Campaign.find({
-            campaignId: { $in: distinctCampIds } 
-        }).select('campaignId title');
+    const campMap = {};
+    campaigns.forEach(c => campMap[c.campaignId] = c.title);
 
-        const publishers = await Publisher.find({
-            publisherId: { $in: distinctPubIds }
-        }).select('publisherId fullName');
-        
-        console.log(`[Reports] Found ${campaigns.length} campaigns and ${publishers.length} publishers`);
-
-        campaigns.forEach(c => {
-            campMap[String(c.campaignId)] = c.title; // Force string key
-        });
-        publishers.forEach(p => {
-             pubMap[String(p.publisherId)] = p.fullName; // Force string key
-        });
-        
-        console.log('[Reports] CampMap Keys:', Object.keys(campMap));
-    } catch (lookupErr) {
-        console.error('[Reports] Name lookup error (non-fatal):', lookupErr);
-    }
+    const pubMap = {};
+    publishers.forEach(p => pubMap[p.publisherId] = p.fullName);
 
     // Finalize output
     const report = Array.from(reportMap.values()).map(row => ({

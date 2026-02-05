@@ -124,33 +124,26 @@ router.get('/', async (req, res) => {
     // Enrich with Campaign and Publisher names
     // Fetch all needed campaigns and publishers first to minimize DB calls
     // (Optimization: In a huge system, we'd use $lookup in aggregation, but here separate query is fine for now)
-    const distinctCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id))];
-    const distinctPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id))];
+    let campMap = {};
+    let pubMap = {};
 
-    // We need to match string IDs to what's in DB. 
-    // Campaign model has `campaignId` (Number) and `_id`. 
-    // Clicks use `camp_id` as String.
-    // Let's try to find by both just in case, or assume they match the scheme used elsewhere.
-    // Based on previous contexts, `camp_id` in clicks seems to be the custom ID (e.g. "1").
-    
-    // Warning: If camp_id is stored as "1" in Click but 1 (Number) in Campaign, we need care.
-    // Let's assume loosely typed matching or explicit casting.
-    
-    const campaigns = await Campaign.find({
-        // Finding campaigns where campaignId matches
-        // We might need to cast to Number if they are stored as numbers
-         campaignId: { $in: distinctCampIds } 
-    }).select('campaignId title');
+    try {
+        const distinctCampIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.camp_id).filter(Boolean))];
+        const distinctPubIds = [...new Set([...clickResults, ...conversionResults].map(x => x._id.publisher_id).filter(Boolean))];
 
-    const publishers = await Publisher.find({
-        publisherId: { $in: distinctPubIds }
-    }).select('publisherId fullName');
+        const campaigns = await Campaign.find({
+            campaignId: { $in: distinctCampIds } 
+        }).select('campaignId title');
 
-    const campMap = {};
-    campaigns.forEach(c => campMap[c.campaignId] = c.title);
+        const publishers = await Publisher.find({
+            publisherId: { $in: distinctPubIds }
+        }).select('publisherId fullName');
 
-    const pubMap = {};
-    publishers.forEach(p => pubMap[p.publisherId] = p.fullName);
+        campaigns.forEach(c => campMap[c.campaignId] = c.title);
+        publishers.forEach(p => pubMap[p.publisherId] = p.fullName);
+    } catch (lookupErr) {
+        console.error('[Reports] Name lookup error (non-fatal):', lookupErr);
+    }
 
     // Finalize output
     const report = Array.from(reportMap.values()).map(row => ({

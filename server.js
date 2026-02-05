@@ -63,6 +63,7 @@ app.use('/api/postback', postbackRoutes);
 app.use('/api/track', trackingRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/stats', require('./routes/stats'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Debug/Health Route
 app.get('/api/health', async (req, res) => {

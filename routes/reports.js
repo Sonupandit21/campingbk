@@ -37,7 +37,14 @@ router.get('/', async (req, res) => {
              camp_id: "$camp_id",
              publisher_id: "$publisher_id"
           },
-          clicks: { $sum: 1 }
+          clicks: { $sum: 1 },
+          uniqueIps: { $addToSet: "$ip_address" }
+        }
+      },
+      {
+        $project: {
+            clicks: 1,
+            unique_clicks: { $size: "$uniqueIps" }
         }
       }
     ];
@@ -86,11 +93,14 @@ router.get('/', async (req, res) => {
           camp_id: item._id.camp_id,
           publisher_id: item._id.publisher_id,
           clicks: 0,
+          unique_clicks: 0,
           conversions: 0,
           payout: 0
         });
       }
-      reportMap.get(key).clicks += item.clicks;
+      const entry = reportMap.get(key);
+      entry.clicks += item.clicks;
+      entry.unique_clicks += item.unique_clicks;
     });
 
     // Process conversions

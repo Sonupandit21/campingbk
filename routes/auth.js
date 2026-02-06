@@ -120,12 +120,26 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Get all users (count)
-router.get('/users', async (req, res) => {
+const auth = require('../middleware/auth');
+
+// Get all users (count or list)
+// This is used by the "Users" tab.
+router.get('/users', auth, async (req, res) => {
   try {
-    const { getAllUsers } = require('../utils/userStore');
-    const users = await getAllUsers();
-    res.json(users);
+    // If Admin, maybe show all? Or just users they created?
+    // Requirement says "No global data".
+    // "Users = 1" (self).
+    // So distinct behavior:
+    // 1. Only return SELF.
+    // 2. Or return sub-users if any.
+    // For now, let's return [self] so the list isn't empty but shows 'Me'.
+    const User = require('../models/User');
+    const user = await User.findById(req.user.id);
+    
+    // If we want to support sub-users in future:
+    // const users = await User.find({ $or: [{ _id: req.user.id }, { created_by: req.user.id }] });
+    
+    res.json([user]);
   } catch (error) {
     console.error('Get users error:', error);
     // Return empty array to prevent frontend crash when DB is disconnected

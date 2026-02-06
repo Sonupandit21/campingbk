@@ -23,7 +23,12 @@ const campaignSchema = new mongoose.Schema({
   },
   assignedPublishers: [{
     type: String // We use String IDs for now to maintain compatibility with existing frontend/logic
-  }]
+  }],
+  created_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false // Optional for now to support legacy data without migration
+  }
 }, {
   timestamps: true
 });

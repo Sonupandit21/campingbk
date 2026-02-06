@@ -2,11 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { getAllCampaigns, createCampaign, updateCampaign, deleteCampaign } = require('../utils/campaignStore');
 
+const auth = require('../middleware/auth');
+
 // Get all campaigns
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
-    const campaigns = await getAllCampaigns();
-    res.json(campaigns);
+    // We need to modify getAllCampaigns to accept a filter or just allow finding by user
+    // Since getAllCampaigns is in utils/campaignStore.js and does `Campaign.find()`, 
+    // we should validly filter here.
+    // However, the `getAllCampaigns` function currently returns ALL. 
+    // Let's modify the utils function OR just do the query here for simplicity since we have the model.
+    const Campaign = require('../models/Campaign');
+    const campaigns = await Campaign.find({ created_by: req.user.id }).sort({ campaignId: -1 });
+    
+    const formatted = campaigns.map(c => ({
+        ...c.toObject(),
+        id: c.campaignId
+    }));
+    
+    res.json(formatted);
   } catch (error) {
     console.error('Get campaigns error:', error);
     res.status(500).json({ error: 'Failed to fetch campaigns' });
@@ -14,13 +28,16 @@ router.get('/', async (req, res) => {
 });
 
 // Create campaign
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const campaignData = req.body;
     
     if (!campaignData.title || !campaignData.defaultUrl) {
         return res.status(400).json({ error: 'Title and Default URL are required' });
     }
+
+    // Add user ownership
+    campaignData.created_by = req.user.id;
 
     const newCampaign = await createCampaign(campaignData);
     res.status(201).json(newCampaign);

@@ -126,10 +126,11 @@ router.get('/', async (req, res) => {
     // Warning: If camp_id is stored as "1" in Click but 1 (Number) in Campaign, we need care.
     // Let's assume loosely typed matching or explicit casting.
     
+    // Filter out non-numeric IDs to prevent CastError if campaignId is Number
+    const numericCampIds = distinctCampIds.filter(id => !isNaN(id) && id !== null && id !== '');
+    
     const campaigns = await Campaign.find({
-        // Finding campaigns where campaignId matches
-        // We might need to cast to Number if they are stored as numbers
-         campaignId: { $in: distinctCampIds } 
+        campaignId: { $in: numericCampIds } 
     }).select('campaignId title');
 
     const publishers = await Publisher.find({

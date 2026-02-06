@@ -7,7 +7,7 @@ const { findUserByEmail, createUser, comparePassword } = require('../utils/userS
 router.post('/register', async (req, res) => {
   let step = 'init';
   try {
-    const { name, mobile, email, password, photo } = req.body;
+    const { name, mobile, email, password, photo, role='user' } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -200,3 +200,6 @@ router.put('/profile', async (req, res) => {
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
+
+
+

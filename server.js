@@ -61,6 +61,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/publishers', publisherRoutes);
 app.use('/api/postback', postbackRoutes);
 app.use('/api/track', trackingRoutes);
+app.use('/tracking', trackingRoutes); // Alias for legacy/external links
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/reports', require('./routes/reports'));

@@ -127,7 +127,10 @@ router.get('/', async (req, res) => {
     // Let's assume loosely typed matching or explicit casting.
     
     // Filter out non-numeric IDs to prevent CastError if campaignId is Number
-    const numericCampIds = distinctCampIds.filter(id => !isNaN(id) && id !== null && id !== '');
+    // Filter out non-numeric IDs to prevent CastError if campaignId is Number
+    const numericCampIds = distinctCampIds
+        .map(id => Number(id))
+        .filter(id => !isNaN(id) && id !== 0); // Assuming 0 is not a valid campaign ID or we filter it out if we want
     
     const campaigns = await Campaign.find({
         campaignId: { $in: numericCampIds } 

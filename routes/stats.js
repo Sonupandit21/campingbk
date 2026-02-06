@@ -4,27 +4,43 @@ const router = express.Router();
 const Campaign = require('../models/Campaign');
 const Conversion = require('../models/Conversion'); 
 const User = require('../models/User');
+const auth = require('../middleware/authMiddleware');
 
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   const stats = { offers: 0, responses: 0, users: 0, errors: [] };
+  const userId = req.user.id;
+  // If user info is structure differently, adapt. Middleware sets req.user.
+  // Assuming req.user has { id, role, ... }
+  const isAdmin = req.user.role === 'admin';
 
   try {
     try {
-      stats.offers = await Campaign.countDocuments();
+      // Offers: Count campaigns assigned to this user
+      // If admin, maybe show all (or empty if checking fresh user flow).
+      // Requirement: New User -> Offers 0. 
+      const campaignFilter = isAdmin ? {} : { assignedPublishers: userId };
+      stats.offers = await Campaign.countDocuments(campaignFilter);
     } catch (e) {
       console.error('Campaign stats error:', e);
       stats.errors.push(`Campaigns: ${e.message}`);
     }
 
     try {
-      stats.responses = await Conversion.countDocuments();
+      // Responses: Conversions for this user
+      const conversionFilter = isAdmin ? {} : { publisher_id: userId };
+      stats.responses = await Conversion.countDocuments(conversionFilter);
     } catch (e) {
       console.error('Conversion stats error:', e);
       stats.errors.push(`Conversions: ${e.message}`);
     }
 
     try {
-      stats.users = await User.countDocuments();
+      // Users: 1 for regular user
+      if (isAdmin) {
+         stats.users = await User.countDocuments();
+      } else {
+         stats.users = 1; 
+      }
     } catch (e) {
       console.error('User stats error:', e);
       stats.errors.push(`Users: ${e.message}`);

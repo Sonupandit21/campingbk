@@ -11,49 +11,50 @@ const auth = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
   try {
     const { startDate, endDate, campaignId, publisherId } = req.query;
-    const userId = req.user.id; // From auth middleware
+    const userId = req.user.id; 
+    const isPublisher = req.user.role === 'publisher';
 
-    // Get user's campaigns and publishers first to filter
-    // If no campaignId provided, we must restrict to ALL user's campaigns
-    const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
-    const userPublishers = await Publisher.find({ created_by: userId }).select('publisherId');
-    
-    // Create sets for fast lookup
-    const userCampIds = userCampaigns.map(c => c.campaignId.toString());
-    const userPubIds = userPublishers.map(p => p.publisherId.toString()); // If stored as number, toString()
-    
-    // If the user has no campaigns, return empty report immediately
-    if (userCampIds.length === 0) {
-        return res.json([]);
-    }
-
-    // Base match criteria
     const match = {};
-    
-    // STRICT FILTERING: Only match campaigns owned by user
-    // If specific campaign requested, verify ownership
-    if (campaignId) {
-        if (!userCampIds.includes(campaignId.toString())) {
-             return res.json([]); // Unauthorized access to campaign or doesn't exist
-        }
-        match.camp_id = campaignId;
-    } else {
-        // Match ANY of the user's campaigns
-        match.camp_id = { $in: userCampIds };
-    }
 
-    // STRICT FILTERING: Only match publishers owned by user (optional, if we want to restrict publishers too)
-    // Assuming publishers are also private to user
-    if (publisherId) {
-       // Check if publisher belongs to user, if we enforce publisher isolation too
-       // If publisher logic is global (shared publishers), skip this check.
-       // Based on "Dashboard must load in a fresh state", publishers likely user-specific too.
-       /*
-       if (!userPubIds.includes(publisherId.toString())) {
-           return res.json([]); 
-       }
-       */
-       match.publisher_id = publisherId;
+    // Logic separation based on Role
+    if (isPublisher) {
+        // PUBLISHER VIEW
+        // 1. Must filter by their OWN publisher identifier
+        match.publisher_id = userId.toString(); 
+
+        // 2. Can filter by specific campaign if requested
+        if (campaignId) {
+            match.camp_id = campaignId;
+        }
+        
+        // 3. Ignore query `publisherId` or warn if different? 
+        // We fundamentally force it to be their ID above.
+    } else {
+        // ADMIN/USER VIEW
+        // Get user's campaigns to filter
+        const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
+        const userCampIds = userCampaigns.map(c => c.campaignId.toString());
+        
+        // If the user has no campaigns, return empty report immediately
+        if (userCampIds.length === 0) {
+            return res.json([]);
+        }
+
+        // STRICT FILTERING: Only match campaigns owned by user
+        if (campaignId) {
+            if (!userCampIds.includes(campaignId.toString())) {
+                 return res.json([]); // Unauthorized access to campaign
+            }
+            match.camp_id = campaignId;
+        } else {
+            // Match ANY of the user's campaigns
+            match.camp_id = { $in: userCampIds };
+        }
+
+        // Optional: Filter by specific publisher if Admin requests it
+        if (publisherId) {
+           match.publisher_id = publisherId;
+        }
     }
 
     if (startDate || endDate) {

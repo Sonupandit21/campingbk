@@ -16,6 +16,10 @@ const campaignSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  defaultGoalName: {
+    type: String,
+    required: false
+  },
   status: {
     type: String,
     enum: ['Active', 'Paused', 'Stopped'],

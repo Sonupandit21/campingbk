@@ -76,7 +76,8 @@ router.get('/', auth, async (req, res) => {
             // Group by date (YYYY-MM-DD), campaign, and publisher
              date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
              camp_id: "$camp_id",
-             publisher_id: "$publisher_id"
+             publisher_id: "$publisher_id",
+             source: "$source"
           },
           clicks: { $sum: 1 },
           uniqueIps: { $addToSet: "$ip_address" }
@@ -105,7 +106,8 @@ router.get('/', auth, async (req, res) => {
           _id: {
              date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
              camp_id: "$camp_id",
-             publisher_id: "$publisher_id"
+             publisher_id: "$publisher_id",
+             source: "$source"
           },
           conversions: { $sum: 1 },
           payout: { $sum: "$payout" }
@@ -123,7 +125,7 @@ router.get('/', auth, async (req, res) => {
     const reportMap = new Map();
 
     // Helper to generate key
-    const getKey = (item) => `${item._id.date}|${item._id.camp_id}|${item._id.publisher_id}`;
+    const getKey = (item) => `${item._id.date}|${item._id.camp_id}|${item._id.publisher_id}|${item._id.source}`;
 
     // Process clicks
     clickResults.forEach(item => {
@@ -133,6 +135,7 @@ router.get('/', auth, async (req, res) => {
           date: item._id.date,
           camp_id: item._id.camp_id,
           publisher_id: item._id.publisher_id,
+          source: item._id.source || '',
           clicks: 0,
           unique_clicks: 0,
           conversions: 0,
@@ -152,6 +155,7 @@ router.get('/', auth, async (req, res) => {
             date: item._id.date,
             camp_id: item._id.camp_id,
             publisher_id: item._id.publisher_id,
+            source: item._id.source || '',
             clicks: 0,
             conversions: 0,
             payout: 0
@@ -185,26 +189,30 @@ router.get('/', auth, async (req, res) => {
     
     const campaigns = await Campaign.find({
         campaignId: { $in: numericCampIds } 
-    }).select('campaignId title');
+    }).select('campaignId title defaultGoalName');
 
     const publishers = await Publisher.find({
         publisherId: { $in: distinctPubIds }
     }).select('publisherId fullName');
 
     const campMap = {};
-    campaigns.forEach(c => campMap[c.campaignId] = c.title);
+    campaigns.forEach(c => campMap[c.campaignId] = { title: c.title, goalName: c.defaultGoalName });
 
     const pubMap = {};
     publishers.forEach(p => pubMap[p.publisherId] = p.fullName);
 
     // Finalize output
-    const report = Array.from(reportMap.values()).map(row => ({
-        ...row,
-        campaignName: campMap[row.camp_id] || `Unknown (${row.camp_id})`,
-        publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
-        cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0,
-        epc: row.clicks > 0 ? (row.payout / row.clicks).toFixed(4) : 0
-    }));
+    const report = Array.from(reportMap.values()).map(row => {
+        const camp = campMap[row.camp_id] || {};
+        return {
+            ...row,
+            campaignName: camp.title || `Unknown (${row.camp_id})`,
+            goalName: camp.goalName || 'N/A',
+            publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
+            cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0,
+            epc: row.clicks > 0 ? (row.payout / row.clicks).toFixed(4) : 0
+        };
+    });
 
     // Sort by date desc
     report.sort((a, b) => new Date(b.date) - new Date(a.date));

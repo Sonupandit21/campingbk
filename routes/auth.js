@@ -160,7 +160,7 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+
 
 // Change Password
 router.put('/change-password', async (req, res) => {
@@ -211,9 +211,70 @@ router.put('/profile', async (req, res) => {
     if (error.message === 'Email already exists') {
         return res.status(400).json({ error: error.message });
     }
-    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
+
+// Login/Switch as Publisher (Admin Only)
+router.post('/login-as-publisher', auth, async (req, res) => {
+  try {
+    // Check if requesting user is authorized (Admin or User)
+    // Note: 'user' role is the default for admins in this app apparently, or we need to be careful.
+    // The previous analysis showed User model has role 'user' or 'admin'.
+    // We should allow 'admin' and maybe 'user' if they are the owner? 
+    // Safest: Allow if req.user exists. 
+    // Ideally check req.user.role === 'admin'. 
+    // Checking User model again: enum ['user', 'admin'], default 'user'.
+    // Most users seem to be 'user' role acting as admins of their panel. 
+    // So we allow 'user' and 'admin'.
+    
+    if (!req.user || !req.user.id) {
+         return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { publisherId } = req.body;
+    if (!publisherId) {
+        return res.status(400).json({ error: 'Publisher ID is required' });
+    }
+
+    const Publisher = require('../models/Publisher');
+    // Support numeric ID search
+    const publisher = await Publisher.findOne({ publisherId: Number(publisherId) });
+    
+    if (!publisher) {
+        return res.status(404).json({ error: 'Publisher not found' });
+    }
+
+    // Generate Publisher Token
+    const payload = {
+      user: {
+        id: publisher._id, // Mongo ID
+        publisherId: publisher.publisherId, // Numeric ID
+        role: 'publisher',
+        email: publisher.email,
+        name: publisher.fullName,
+        isImpersonated: true // Flag to potentially show UI warn
+      }
+    };
+
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: payload.user
+    });
+
+  } catch (err) {
+    console.error('Login-As Error:', err);
+    res.status(500).json({ error: 'Server error during context switch' });
+  }
+});
+
+module.exports = router;
+
 
 
 

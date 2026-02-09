@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Publisher = require('../models/Publisher');
 
 // Get all publishers

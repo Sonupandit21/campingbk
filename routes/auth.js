@@ -290,12 +290,14 @@ router.post('/admin/impersonate-publisher', auth, async (req, res) => {
     // Find publisher
     let query;
     const mongoose = require('mongoose');
-    // Check if it's a valid ObjectId
-    if (mongoose.Types.ObjectId.isValid(publisherId)) {
+    // Check if it's a valid ObjectId (Strict 24 hex chars)
+    const isObjectId = mongoose.Types.ObjectId.isValid(publisherId) && /^[0-9a-fA-F]{24}$/.test(publisherId);
+    
+    if (isObjectId) {
         query = { _id: publisherId };
     } else if (!isNaN(publisherId)) {
         // Assume it's the numeric publisherId
-        query = { publisherId: publisherId };
+        query = { publisherId: Number(publisherId) };
     } else {
         // Invalid format
         return res.status(400).json({ error: 'Invalid Publisher ID format' });

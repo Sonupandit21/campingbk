@@ -11,70 +11,49 @@ const auth = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
   try {
     const { startDate, endDate, campaignId, publisherId } = req.query;
+    const userId = req.user.id; // From auth middleware
+
+    // Get user's campaigns and publishers first to filter
+    // If no campaignId provided, we must restrict to ALL user's campaigns
+    const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
+    const userPublishers = await Publisher.find({ created_by: userId }).select('publisherId');
+    
+    // Create sets for fast lookup
+    const userCampIds = userCampaigns.map(c => c.campaignId.toString());
+    const userPubIds = userPublishers.map(p => p.publisherId.toString()); // If stored as number, toString()
+    
+    // If the user has no campaigns, return empty report immediately
+    if (userCampIds.length === 0) {
+        return res.json([]);
+    }
 
     // Base match criteria
     const match = {};
-
-    // Check Role
-    if (req.user.role === 'publisher') {
-        // Publisher Access: RESTRICTED to their own ID
-        const myPubId = req.user.publisherId; // From token
-        if (!myPubId) {
-            // Fallback: If publisherId not in token (shouldn't happen with new login), deny
-             return res.status(403).json({ error: 'Publisher ID missing in token' });
+    
+    // STRICT FILTERING: Only match campaigns owned by user
+    // If specific campaign requested, verify ownership
+    if (campaignId) {
+        if (!userCampIds.includes(campaignId.toString())) {
+             return res.json([]); // Unauthorized access to campaign or doesn't exist
         }
-        
-        // Force filter by their publisher ID
-        // Note: Check if DB stores as number or string. 
-        // Based on `check_pub_state.js`, publisherId is Number. 
-        // But click/conversion aggregations might group by string if schema mixed.
-        // Let's assume consistent with what was there: 
-        // Old code: `userPubIds` (strings) vs `publisherId` (query).
-        // Let's coerce to String for match if the field in Click is String.
-        // Click model usually stores IDs as Strings or Numbers. 
-        // Best approach: If publisherId is Number in Publisher model, use Number.
-        match.publisher_id = Number(myPubId); 
-        // If that fails we can try string later. But let's trust the token has the correct numeric ID.
-
-        // Allow filtering by specific campaign if they passed it
-        if (campaignId) {
-            match.camp_id = campaignId; // camp_id usually String/Number matching Campaign ID
-        }
-        
+        match.camp_id = campaignId;
     } else {
-        // Admin Logic (Existing)
-        const userId = req.user.id; 
-    
-        // Get user's campaigns to filter (Strict ownership check)
-        // Note: We need to define Publisher/Campaign models if not already defining them effectively. 
-        // They are imported at top.
-        const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
-        
-        // Optimize: If no campaigns, return empty
-        if (userCampaigns.length === 0) {
-            return res.json([]);
-        }
-        
-        const userCampIds = userCampaigns.map(c => c.campaignId.toString());
+        // Match ANY of the user's campaigns
+        match.camp_id = { $in: userCampIds };
+    }
 
-        if (campaignId) {
-            if (!userCampIds.includes(campaignId.toString())) {
-                return res.json([]); 
-            }
-            match.camp_id = campaignId;
-        } else {
-            match.camp_id = { $in: userCampIds };
-        }
-    
-        // Optional: Filter by publisher if requested
-        if (publisherId) {
-           match.publisher_id = publisherId; // query param is string, DB might be number/string. Auto-cast by Mongoose? No, this is aggregation $match.
-           // Ideally we cast to Number if schema is Number.
-           // For now, keep as is which likely worked before (if publisherId param matches DB type).
-           // Actually, if publisherId comes from query string, it's a string.
-           // If DB field is Number, we need to cast. 
-           // Let's try to handle both or leave as 'publisherId' (loose).
-        }
+    // STRICT FILTERING: Only match publishers owned by user (optional, if we want to restrict publishers too)
+    // Assuming publishers are also private to user
+    if (publisherId) {
+       // Check if publisher belongs to user, if we enforce publisher isolation too
+       // If publisher logic is global (shared publishers), skip this check.
+       // Based on "Dashboard must load in a fresh state", publishers likely user-specific too.
+       /*
+       if (!userPubIds.includes(publisherId.toString())) {
+           return res.json([]); 
+       }
+       */
+       match.publisher_id = publisherId;
     }
 
     if (startDate || endDate) {

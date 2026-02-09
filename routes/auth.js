@@ -160,7 +160,7 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+// module.exports = router; // Moved to end of file
 
 // Change Password
 router.put('/change-password', async (req, res) => {
@@ -334,7 +334,7 @@ router.post('/admin/impersonate-publisher', auth, async (req, res) => {
 
   } catch (err) {
     console.error('Impersonation Error:', err);
-    res.status(500).json({ error: 'Server error during impersonation' });
+    res.status(500).json({ error: `Server error during impersonation: ${err.message}` });
   }
 });
 

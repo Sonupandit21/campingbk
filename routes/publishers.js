@@ -68,8 +68,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+const checkRole = require('../middleware/checkRole');
+
 // Delete publisher
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, checkRole(['superadmin']), async (req, res) => {
   try {
     const { id } = req.params;
     await deletePublisher(id);

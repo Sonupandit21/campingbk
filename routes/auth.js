@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const checkRole = require('../middleware/checkRole');
 const { findUserByEmail, createUser, comparePassword } = require('../utils/userStore');
 
 // Register
@@ -20,6 +21,11 @@ router.post('/register', async (req, res) => {
       return res.status(503).json({ error: 'Database service unavailable. Please check server logs.' });
     }
     
+    // Prevent creating superadmin via public registration
+    if (role === 'superadmin') {
+        return res.status(403).json({ error: 'Cannot register as superadmin' });
+    }
+
     // Create new user
     step = 'createUser';
     const user = await createUser({ name, mobile, email, password, photo, role});
@@ -148,7 +154,7 @@ router.get('/users', auth, async (req, res) => {
 });
 
 // Delete user
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', auth, checkRole(['superadmin']), async (req, res) => {
   try {
     const { deleteUser } = require('../utils/userStore');
     const { id } = req.params;

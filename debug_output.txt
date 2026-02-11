@@ -1,0 +1,28 @@
+Connected to DB
+Found 2 campaigns for 'Sonu'.
+
+
+--- CAMPAIGN ---
+Title: "unstop testing "
+campaignId: '7' (Type: number)
+_id: 698577fc5fe68651057c8ccc (Type: object)
+  Rule #1: PubID='2', Name='sonu kumar', Value=10, Type=All
+  No recent conversions found for camp_id: 7
+
+
+--- CAMPAIGN ---
+Title: "Cashback Master"
+campaignId: '11' (Type: number)
+_id: 698c21a419cfa9135d44a123 (Type: object)
+  Rule #1: PubID='2', Name='sonu kumar', Value=100, Type=All
+  Recent Conversions (matched by c.campaignId):
+    - ClickID: 698c224319cfa9135d44a143
+      CampID in Conv: '11' (Type: string)
+      PubID: '2'
+      Status: approved
+      Source: ''
+    - ClickID: 698c224319cfa9135d44a143
+      CampID in Conv: '11' (Type: string)
+      PubID: '2'
+      Status: approved
+      Source: ''

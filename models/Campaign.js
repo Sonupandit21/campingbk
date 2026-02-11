@@ -39,7 +39,7 @@ const campaignSchema = new mongoose.Schema({
     samplingBasedOn: { type: String, default: 'Sub ID (Source)' },
     subIdsType: { type: String, enum: ['All', 'Exclude', 'Include'], default: 'All' },
     subIds: [String],
-    samplingType: { type: String, enum: ['Fixed', 'Dynamic'], default: 'Fixed' },
+    samplingType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
     samplingValue: Number,
     goalName: { type: String, default: 'Gross Conversions' }
   }]

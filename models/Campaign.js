@@ -32,7 +32,16 @@ const campaignSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: false // Optional for now to support legacy data without migration
-  }
+  },
+  sampling: [{
+    publisherId: String,
+    publisherName: String,
+    samplingBasedOn: { type: String, default: 'Sub ID (Source)' },
+    subIdsType: { type: String, enum: ['All', 'Exclude', 'Include'], default: 'All' },
+    subIds: [String],
+    samplingType: { type: String, enum: ['Fixed', 'Dynamic'], default: 'Fixed' },
+    samplingValue: Number
+  }]
 }, {
   timestamps: true
 });

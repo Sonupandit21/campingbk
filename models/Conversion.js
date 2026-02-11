@@ -20,7 +20,7 @@ const conversionSchema = new mongoose.Schema({
   p2: String,
   status: {
     type: String,
-    enum: ['approved', 'pending', 'rejected'],
+    enum: ['approved', 'pending', 'rejected', 'sampled'],
     default: 'approved' // Auto-approve postbacks for now
   }
 }, {

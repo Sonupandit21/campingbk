@@ -109,8 +109,22 @@ router.get('/', auth, async (req, res) => {
              publisher_id: "$publisher_id",
              source: "$source"
           },
-          conversions: { $sum: 1 },
-          payout: { $sum: "$payout" }
+          conversions: { 
+            $sum: { 
+                $cond: [{ $eq: ["$status", "approved"] }, 1, 0] 
+            } 
+          },
+          gross_conversions: { $sum: 1 },
+          sampled_conversions: { 
+            $sum: { 
+                $cond: [{ $eq: ["$status", "sampled"] }, 1, 0] 
+            } 
+          },
+          payout: { 
+            $sum: {
+                $cond: [{ $eq: ["$status", "approved"] }, "$payout", 0]
+            }
+          }
         }
       }
     ];
@@ -138,7 +152,11 @@ router.get('/', auth, async (req, res) => {
           source: item._id.source || '',
           clicks: 0,
           unique_clicks: 0,
+          clicks: 0,
+          unique_clicks: 0,
           conversions: 0,
+          gross_conversions: 0,
+          sampled_conversions: 0,
           payout: 0
         });
       }
@@ -158,11 +176,15 @@ router.get('/', auth, async (req, res) => {
             source: item._id.source || '',
             clicks: 0,
             conversions: 0,
+            gross_conversions: 0,
+            sampled_conversions: 0,
             payout: 0
         });
       }
       const entry = reportMap.get(key);
       entry.conversions += item.conversions;
+      entry.gross_conversions += item.gross_conversions;
+      entry.sampled_conversions += item.sampled_conversions;
       entry.payout += item.payout;
     });
 

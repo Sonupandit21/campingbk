@@ -91,17 +91,26 @@ const checkIsSampled = (campaign, publisher, source) => {
             let match = false;
             const rulePubIdStr = String(rule.publisherId);
             
+            console.log(`[Sampling] Checking Rule PubID: ${rulePubIdStr} vs Conversion Pub:`, publisher ? publisher.id : 'N/A');
+
             if (publisher) {
-                // Check against both .id (legacy) and ._id (mongo) and .referenceId
-                if (String(publisher.id) === rulePubIdStr) match = true;
-                if (String(publisher._id) === rulePubIdStr) match = true;
-                if (publisher.referenceId && String(publisher.referenceId) === rulePubIdStr) match = true;
+                try {
+                    // Check against both .id (legacy) and ._id (mongo) and .referenceId
+                    if (publisher.id && String(publisher.id) === rulePubIdStr) match = true;
+                    if (publisher._id && publisher._id.toString() === rulePubIdStr) match = true;
+                    if (publisher.referenceId && String(publisher.referenceId) === rulePubIdStr) match = true;
+                } catch (err) {
+                    console.error('[Sampling] Error comparing publisher IDs:', err);
+                }
             } 
             
             // Also check raw publisher_id passed in case lookup failed but IDs match exactly
-            if (!match && publisher && String(publisher.id) === rulePubIdStr) match = true; // Redundant but safe
+            if (!match && String(publisher && publisher.id || '') === rulePubIdStr) match = true; 
             
-            if (!match) continue; // Publisher mismatch
+            if (!match) {
+                console.log(`[Sampling] Publisher mismatch. Rule: ${rulePubIdStr}, Actual: ${publisher ? publisher.id : 'N/A'}`);
+                continue; // Publisher mismatch
+            }
         }
 
         // 2. Check Sub ID (Source) Match

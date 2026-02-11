@@ -77,20 +77,31 @@ const sendPostback = async (url, type) => {
 };
 
 // Start Sampling Logic
-const checkIsSampled = (campaign, publisher_id, source) => {
+const checkIsSampled = (campaign, publisher, source) => {
     if (!campaign || !campaign.sampling || campaign.sampling.length === 0) return false;
 
     // Normalize inputs
-    const pubIdStr = String(publisher_id || '');
     const sourceStr = String(source || '');
 
     for (const rule of campaign.sampling) {
         // 1. Check Publisher Match
-        // If rule has a specific publisher, it must match. If rule publisher is empty/null, it applies to all? 
-        // Based on UI, it forces selection. But let's be safe. 
-        // The AddSamplingModal forces a publisher selection.
-        if (rule.publisherId && String(rule.publisherId) !== pubIdStr) {
-            continue; // Publisher mismatch, skip this rule
+        if (rule.publisherId) {
+            // Rule has a specific publisher.
+            // Check against passed publisher object (if available) or raw ID
+            let match = false;
+            const rulePubIdStr = String(rule.publisherId);
+            
+            if (publisher) {
+                // Check against both .id (legacy) and ._id (mongo) and .referenceId
+                if (String(publisher.id) === rulePubIdStr) match = true;
+                if (String(publisher._id) === rulePubIdStr) match = true;
+                if (publisher.referenceId && String(publisher.referenceId) === rulePubIdStr) match = true;
+            } 
+            
+            // Also check raw publisher_id passed in case lookup failed but IDs match exactly
+            if (!match && publisher && String(publisher.id) === rulePubIdStr) match = true; // Redundant but safe
+            
+            if (!match) continue; // Publisher mismatch
         }
 
         // 2. Check Sub ID (Source) Match
@@ -120,7 +131,7 @@ const checkIsSampled = (campaign, publisher_id, source) => {
         const randomVal = Math.random() * 100;
 
         if (randomVal < threshold) {
-            console.log(`[Sampling] HIT: Rule matched (Pub: ${rule.publisherId}, Type: ${rule.subIdsType}, Val: ${threshold}%)`);
+            console.log(`[Sampling] HIT: Rule matched (PubRule: ${rule.publisherId}, Type: ${rule.subIdsType}, Val: ${threshold}%)`);
             return true; // Is Sampled
         } else {
             console.log(`[Sampling] MISS: Rule matched but RNG passed (Val: ${randomVal.toFixed(2)} >= ${threshold})`);
@@ -196,7 +207,16 @@ const handleConversion = async (req, res) => {
         // 5c. Check Sampling
         let isSampled = false;
         if (campaign) {
-            isSampled = checkIsSampled(campaign, publisher_id, source);
+            // Fetch Publisher for Robust Matching
+            let publisherObj = null;
+            if (publisher_id) {
+                try {
+                    const allPublishers = await getAllPublishers();
+                    publisherObj = allPublishers.find(p => p.id == publisher_id || p.referenceId == publisher_id || p._id == publisher_id);
+                } catch(e) { console.error('Error fetching publisher for sampling:', e); }
+            }
+            
+            isSampled = checkIsSampled(campaign, publisherObj, source);
         }
 
         if (isSampled) {

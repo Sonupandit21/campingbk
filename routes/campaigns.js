@@ -63,7 +63,19 @@ router.put('/:id', async (req, res) => {
       try {
         const { reprocessConversions } = require('./reprocess');
         const Campaign = require('../models/Campaign');
-        const campaign = await Campaign.findById(id);
+        const mongoose = require('mongoose');
+        
+        // The 'id' parameter could be either campaignId (numeric) or MongoDB _id
+        let campaign;
+        const isObjectId = mongoose.Types.ObjectId.isValid(id);
+        
+        if (!isObjectId && !isNaN(id)) {
+          // Numeric ID -> Search by campaignId
+          campaign = await Campaign.findOne({ campaignId: Number(id) });
+        } else if (isObjectId) {
+          // Mongo ID -> Search by _id
+          campaign = await Campaign.findById(id);
+        }
         
         if (campaign) {
           console.log(`[Sampling Update] Reprocessing conversions for campaign ${campaign.campaignId}`);

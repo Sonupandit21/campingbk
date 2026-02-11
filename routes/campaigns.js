@@ -52,7 +52,30 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const campaignData = req.body;
+    
+    // Check if sampling rules are being updated
+    const isSamplingUpdate = campaignData.hasOwnProperty('sampling');
+    
     const updatedCampaign = await updateCampaign(id, campaignData);
+    
+    // If sampling rules changed, reprocess existing conversions
+    if (isSamplingUpdate) {
+      try {
+        const { reprocessConversions } = require('./reprocess');
+        const Campaign = require('../models/Campaign');
+        const campaign = await Campaign.findById(id);
+        
+        if (campaign) {
+          console.log(`[Sampling Update] Reprocessing conversions for campaign ${campaign.campaignId}`);
+          await reprocessConversions(campaign.campaignId, campaign.sampling);
+          console.log(`[Sampling Update] Reprocessing completed`);
+        }
+      } catch (reprocessError) {
+        console.error('[Sampling Update] Reprocessing error:', reprocessError);
+        // Don't fail the update if reprocessing fails
+      }
+    }
+    
     res.json(updatedCampaign);
   } catch (error) {
     console.error('Update campaign error:', error.message);

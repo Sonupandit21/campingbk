@@ -77,22 +77,27 @@ const sendPostback = async (url, type) => {
 };
 
 // Start Sampling Logic
-const checkIsSampled = (campaign, publisher, source) => {
+const checkIsSampled = async (campaign, publisher, source, rawPublisherId) => {
     if (!campaign || !campaign.sampling || campaign.sampling.length === 0) return false;
 
     // Normalize inputs
     const sourceStr = String(source || '');
+    const rawPubIdStr = String(rawPublisherId || '');
+
+    // Get start of today for fixed counting
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
 
     for (const rule of campaign.sampling) {
         // 1. Check Publisher Match
         if (rule.publisherId) {
             // Rule has a specific publisher.
-            // Check against passed publisher object (if available) or raw ID
             let match = false;
             const rulePubIdStr = String(rule.publisherId);
             
-            console.log(`[Sampling] Checking Rule PubID: ${rulePubIdStr} vs Conversion Pub:`, publisher ? publisher.id : 'N/A');
+            console.log(`[Sampling] Checking Rule PubID: ${rulePubIdStr} vs Conversion Pub Object ID: ${publisher ? publisher.id : 'N/A'}, Raw ID: ${rawPubIdStr}`);
 
+            // A. Check Object Properties (if publisher found)
             if (publisher) {
                 try {
                     // Check against both .id (legacy) and ._id (mongo) and .referenceId
@@ -104,11 +109,13 @@ const checkIsSampled = (campaign, publisher, source) => {
                 }
             } 
             
-            // Also check raw publisher_id passed in case lookup failed but IDs match exactly
-            if (!match && String(publisher && publisher.id || '') === rulePubIdStr) match = true; 
+            // B. Check Raw ID (Fallback or if Object lookup failed)
+            if (!match && rawPubIdStr === rulePubIdStr) {
+                 match = true;
+                 console.log('[Sampling] Matched via Raw Publisher ID');
+            }
             
             if (!match) {
-                console.log(`[Sampling] Publisher mismatch. Rule: ${rulePubIdStr}, Actual: ${publisher ? publisher.id : 'N/A'}`);
                 continue; // Publisher mismatch
             }
         }
@@ -120,34 +127,63 @@ const checkIsSampled = (campaign, publisher, source) => {
         if (rule.subIdsType === 'All') {
             subIdMatch = true;
         } else if (rule.subIdsType === 'Include') {
-            // Apply ONLY if source is in the list
             if (ruleSubIds.includes(sourceStr)) subIdMatch = true;
         } else if (rule.subIdsType === 'Exclude') {
-            // Apply ONLY if source is NOT in the list
             if (!ruleSubIds.includes(sourceStr)) subIdMatch = true;
         }
 
         if (!subIdMatch) continue;
 
-        // 3. Goal Name Match? 
-        // Currently we don't receive 'goal' in conversion param usually, unless passed. 
-        // For now, assuming rules apply generally to the campaign conversion.
-        // If we want to support multi-goal sampling, we'd need goal_name in parameters.
-
-        // 4. Apply Sampling Probability
-        // samplingValue is percentage to CUT (Sample). e.g. 20 means 20% are sampled.
+        // 3. Apply Sampling Logic (Fixed vs Percentage)
+        const samplingType = rule.samplingType || 'percentage'; // Default to percentage for backward compatibility
         const threshold = parseFloat(rule.samplingValue) || 0;
-        const randomVal = Math.random() * 100;
 
-        if (randomVal < threshold) {
-            console.log(`[Sampling] HIT: Rule matched (PubRule: ${rule.publisherId}, Type: ${rule.subIdsType}, Val: ${threshold}%)`);
-            return true; // Is Sampled
+        if (samplingType === 'fixed') {
+             // Fixed: Sample (Deduct) specific NUMBER of conversions daily
+             // Count how many already sampled for this rule's criteria today
+             // Criteria: Campaign + Publisher (if specific) + Status='sampled'
+             
+             try {
+                 const query = {
+                     camp_id: campaign.campaignId, // stored as string or number matching schema
+                     status: 'sampled',
+                     createdAt: { $gte: startOfDay }
+                 };
+                 
+                 // If rule is specific to a publisher, filter by it. 
+                 // If rule is global (no publisherId), it applies to all? 
+                 // (Current UI enforces Publisher selection, but good to be safe)
+                 if (rule.publisherId) {
+                     // We use the raw ID from the conversion for consistency
+                     query.publisher_id = rawPubIdStr; 
+                 }
+
+                 const currentSampledCount = await Conversion.countDocuments(query);
+                 console.log(`[Sampling] Fixed Check: Limit=${threshold}, Current=${currentSampledCount}`);
+
+                 if (currentSampledCount < threshold) {
+                     console.log(`[Sampling] HIT: Fixed limit not reached. Sampling this conversion.`);
+                     return true;
+                 } else {
+                     console.log(`[Sampling] MISS: Fixed limit reached. Passing conversion.`);
+                     return false;
+                 }
+             } catch (err) {
+                 console.error('[Sampling] Error counting documents for fixed sampling:', err);
+                 // Fallback to no sampling on error to prevent revenue loss
+                 return false;
+             }
+
         } else {
-            console.log(`[Sampling] MISS: Rule matched but RNG passed (Val: ${randomVal.toFixed(2)} >= ${threshold})`);
-            // If rule matched but RNG didn't hit, do we stop? 
-            // Usually, if a rule applies, we process it. If we didn't sample, we don't look for other rules for the same pub?
-            // Let's assume one rule per publisher for now.
-            return false;
+            // Percentage (Default)
+            const randomVal = Math.random() * 100;
+            if (randomVal < threshold) {
+                console.log(`[Sampling] HIT: Rule matched (PubRule: ${rule.publisherId}, Type: ${rule.subIdsType}, Val: ${threshold}%)`);
+                return true; 
+            } else {
+                console.log(`[Sampling] MISS: Rule matched but RNG passed (Val: ${randomVal.toFixed(2)} >= ${threshold})`);
+                return false;
+            }
         }
     }
 
@@ -209,8 +245,21 @@ const handleConversion = async (req, res) => {
         // 5b. Fetch Campaign for Sampling Check
         let campaign = null;
         try {
-             campaign = await Campaign.findOne({ campaignId: camp_id }); // camp_id is Number usually
-             if(!campaign) campaign = await Campaign.findById(camp_id);  // Try by _id if number lookup fails
+             // Robust lookup: Match campaignId (Number) OR _id (ObjectId) OR String ID
+             if (mongoose.Types.ObjectId.isValid(camp_id)) {
+                 campaign = await Campaign.findById(camp_id);
+             }
+             if (!campaign) {
+                 // Try numeric cast if possible, else string match
+                 const campIdNum = Number(camp_id);
+                 if (!isNaN(campIdNum)) {
+                     campaign = await Campaign.findOne({ campaignId: campIdNum });
+                 }
+             }
+             // Fallback: Try exact string match (in case stored as string)
+             if (!campaign) {
+                 campaign = await Campaign.findOne({ campaignId: camp_id });
+             }
         } catch(e) { console.error('Error fetching campaign for sampling:', e); }
 
         // 5c. Check Sampling
@@ -225,7 +274,8 @@ const handleConversion = async (req, res) => {
                 } catch(e) { console.error('Error fetching publisher for sampling:', e); }
             }
             
-            isSampled = checkIsSampled(campaign, publisherObj, source);
+            
+            isSampled = await checkIsSampled(campaign, publisherObj, source, publisher_id);
         }
 
         if (isSampled) {

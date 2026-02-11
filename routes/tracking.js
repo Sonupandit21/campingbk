@@ -76,6 +76,65 @@ const sendPostback = async (url, type) => {
     console.error(`${type} postback failed after ${maxRetries} attempts.`);
 };
 
+// Start Sampling Logic
+const checkIsSampled = (campaign, publisher_id, source) => {
+    if (!campaign || !campaign.sampling || campaign.sampling.length === 0) return false;
+
+    // Normalize inputs
+    const pubIdStr = String(publisher_id || '');
+    const sourceStr = String(source || '');
+
+    for (const rule of campaign.sampling) {
+        // 1. Check Publisher Match
+        // If rule has a specific publisher, it must match. If rule publisher is empty/null, it applies to all? 
+        // Based on UI, it forces selection. But let's be safe. 
+        // The AddSamplingModal forces a publisher selection.
+        if (rule.publisherId && String(rule.publisherId) !== pubIdStr) {
+            continue; // Publisher mismatch, skip this rule
+        }
+
+        // 2. Check Sub ID (Source) Match
+        let subIdMatch = false;
+        const ruleSubIds = (rule.subIds || []).map(s => String(s).trim());
+
+        if (rule.subIdsType === 'All') {
+            subIdMatch = true;
+        } else if (rule.subIdsType === 'Include') {
+            // Apply ONLY if source is in the list
+            if (ruleSubIds.includes(sourceStr)) subIdMatch = true;
+        } else if (rule.subIdsType === 'Exclude') {
+            // Apply ONLY if source is NOT in the list
+            if (!ruleSubIds.includes(sourceStr)) subIdMatch = true;
+        }
+
+        if (!subIdMatch) continue;
+
+        // 3. Goal Name Match? 
+        // Currently we don't receive 'goal' in conversion param usually, unless passed. 
+        // For now, assuming rules apply generally to the campaign conversion.
+        // If we want to support multi-goal sampling, we'd need goal_name in parameters.
+
+        // 4. Apply Sampling Probability
+        // samplingValue is percentage to CUT (Sample). e.g. 20 means 20% are sampled.
+        const threshold = parseFloat(rule.samplingValue) || 0;
+        const randomVal = Math.random() * 100;
+
+        if (randomVal < threshold) {
+            console.log(`[Sampling] HIT: Rule matched (Pub: ${rule.publisherId}, Type: ${rule.subIdsType}, Val: ${threshold}%)`);
+            return true; // Is Sampled
+        } else {
+            console.log(`[Sampling] MISS: Rule matched but RNG passed (Val: ${randomVal.toFixed(2)} >= ${threshold})`);
+            // If rule matched but RNG didn't hit, do we stop? 
+            // Usually, if a rule applies, we process it. If we didn't sample, we don't look for other rules for the same pub?
+            // Let's assume one rule per publisher for now.
+            return false;
+        }
+    }
+
+    return false; // No rules matched or triggered
+};
+// End Sampling Logic
+
 // ==========================================
 // HANDLE CONVERSION (Inbound Postback)
 // ==========================================
@@ -124,50 +183,77 @@ const handleConversion = async (req, res) => {
             app_name,
             p1,
             p2,
-            status: 'approved'
-        });
-        console.log('[Conversion] Saved to DB');
-
-        // 6. Fire Trackier S2S Postback
-        // Background async fire - don't await strictly if we want fast response, but good to ensure fire triggers
-        fireTrackierPostback(click_id, validPayout).catch(err => console.error('[Trackier] Error firing postback:', err));
-
-        // 7. Fire Legacy Postbacks (Global & Publisher)
-        // Construct params for macro replacement
-        const params = {
-            click_id,
-            payout: validPayout,
-            camp_id,
-            publisher_id,
-            source,
-            gaid,
-            idfa,
-            app_name,
-            p1,
-            p2
-        };
-
-        // Global Postback
-        getPostbackConfig().then(config => {
-            if (config.url) {
-                const postbackUrl = replaceMacros(config.url, params);
-                sendPostback(postbackUrl, 'Global').catch(err => console.error('Global postback fatal error:', err));
-            }
+            status: 'approved' // Default
         });
 
-        // Publisher Postback
-        if (publisher_id) {
-            getAllPublishers().then(publishers => {
-                // Loose matching for ID
-                const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
-                if (publisher && publisher.postbackUrl) {
-                    const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
-                    sendPostback(pubPostbackUrl, `Publisher ${publisher.id}`).catch(err => console.error('Publisher postback fatal error:', err));
-                }
-            });
+        // 5b. Fetch Campaign for Sampling Check
+        let campaign = null;
+        try {
+             campaign = await Campaign.findOne({ campaignId: camp_id }); // camp_id is Number usually
+             if(!campaign) campaign = await Campaign.findById(camp_id);  // Try by _id if number lookup fails
+        } catch(e) { console.error('Error fetching campaign for sampling:', e); }
+
+        // 5c. Check Sampling
+        let isSampled = false;
+        if (campaign) {
+            isSampled = checkIsSampled(campaign, publisher_id, source);
         }
 
-        return res.status(200).json({ success: true, message: 'Conversion recorded successfully' });
+        if (isSampled) {
+             console.log('[Conversion] Marked as SAMPLED');
+             newConversion.status = 'sampled';
+             await newConversion.save();
+        } else {
+            console.log('[Conversion] Marked as APPROVED');
+             // Already 'approved' by default
+        }
+        
+        console.log('[Conversion] Saved to DB');
+
+        // 6. Fire Trackier S2S Postback (ALWAYS FIRE to track revenue)
+        // Background async fire
+        fireTrackierPostback(click_id, validPayout).catch(err => console.error('[Trackier] Error firing postback:', err));
+
+        // 7. Fire Legacy Postbacks (ONLY IF NOT SAMPLED)
+        if (!isSampled) {
+            // Construct params for macro replacement
+            const params = {
+                click_id,
+                payout: validPayout,
+                camp_id,
+                publisher_id,
+                source,
+                gaid,
+                idfa,
+                app_name,
+                p1,
+                p2
+            };
+
+            // Global Postback
+            getPostbackConfig().then(config => {
+                if (config.url) {
+                    const postbackUrl = replaceMacros(config.url, params);
+                    sendPostback(postbackUrl, 'Global').catch(err => console.error('Global postback fatal error:', err));
+                }
+            });
+
+            // Publisher Postback
+            if (publisher_id) {
+                getAllPublishers().then(publishers => {
+                    // Loose matching for ID
+                    const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
+                    if (publisher && publisher.postbackUrl) {
+                        const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
+                        sendPostback(pubPostbackUrl, `Publisher ${publisher.id}`).catch(err => console.error('Publisher postback fatal error:', err));
+                    }
+                });
+            }
+        } else {
+            console.log('[Postback] Skipped Global/Publisher postbacks due to SAMPLING');
+        }
+
+        return res.status(200).json({ success: true, message: isSampled ? 'Conversion recorded (sampled)' : 'Conversion recorded successfully' });
 
     } catch (error) {
         console.error('[Conversion] Error:', error);

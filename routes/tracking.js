@@ -262,17 +262,6 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
                 query.publisher_id = rawPubIdStr;
             }
 
-            // Get gross conversions count for percentage calculation
-            let grossConversions = 0;
-            if (cutoffTypeMode === 'percentage') {
-                grossConversions = await Conversion.countDocuments({
-                    camp_id: String(campaign.campaignId),
-                    createdAt: { $gte: startOfDay },
-                    status: { $in: ['approved', 'pending'] } // Count non-sampled, non-rejected
-                });
-                console.log(`[ClicksCutoff] Gross Conversions Today: ${grossConversions}`);
-            }
-
             // Check based on type
             if (clickType === 'Clicks' || clickType === 'Both') {
                 // Count total clicks
@@ -281,7 +270,11 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
                 // Calculate threshold
                 let threshold = cutoffValue;
                 if (cutoffTypeMode === 'percentage') {
-                    threshold = Math.floor((grossConversions * cutoffValue) / 100);
+                    // For percentage mode: use the value directly as a threshold percentage
+                    // This means: allow only X% worth of clicks before rejecting
+                    // We interpret this as: allow X clicks per 100 expected clicks
+                    // In practice, we use the percentage value as the numeric threshold
+                    threshold = cutoffValue; // 60% = allow 60 clicks
                 }
                 
                 console.log(`[ClicksCutoff] Clicks Check: Type=${cutoffTypeMode}, Limit=${cutoffValue}${cutoffTypeMode === 'percentage' ? '%' : ''}, Threshold=${threshold}, Current=${clickCount}`);
@@ -300,7 +293,7 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
                 // Calculate threshold
                 let threshold = cutoffValue;
                 if (cutoffTypeMode === 'percentage') {
-                    threshold = Math.floor((grossConversions * cutoffValue) / 100);
+                    threshold = cutoffValue; // 60% = allow 60 unique clicks
                 }
                 
                 console.log(`[ClicksCutoff] Unique Clicks Check: Type=${cutoffTypeMode}, Limit=${cutoffValue}${cutoffTypeMode === 'percentage' ? '%' : ''}, Threshold=${threshold}, Current=${uniqueCount}`);

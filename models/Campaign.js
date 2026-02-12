@@ -42,6 +42,16 @@ const campaignSchema = new mongoose.Schema({
     samplingType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
     samplingValue: Number,
     goalName: { type: String, default: 'Gross Conversions' }
+  }],
+  clicksSettings: [{
+    publisherId: String,
+    publisherName: String,
+    basedOn: { type: String, default: 'Sub ID (Source)' },
+    subIdsType: { type: String, enum: ['All', 'Exclude', 'Include'], default: 'All' },
+    subIds: [String],
+    type: { type: String, enum: ['Clicks', 'Unique Clicks', 'Both'], default: 'Clicks' },
+    value: Number,
+    action: { type: String, default: 'Cutoff' }
   }]
 }, {
   timestamps: true

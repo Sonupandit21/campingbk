@@ -50,6 +50,7 @@ const campaignSchema = new mongoose.Schema({
     subIdsType: { type: String, enum: ['All', 'Exclude', 'Include'], default: 'All' },
     subIds: [String],
     type: { type: String, enum: ['Clicks', 'Unique Clicks', 'Both'], default: 'Clicks' },
+    cutoffType: { type: String, enum: ['percentage', 'count'], default: 'percentage' },
     value: Number,
     action: { type: String, default: 'Cutoff' }
   }]

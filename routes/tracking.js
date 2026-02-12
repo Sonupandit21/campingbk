@@ -248,8 +248,9 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
         if (!subIdMatch) continue;
 
         // 3. Apply Clicks Cutoff Logic
-        const cutoffValue = parseInt(rule.value) || 0;
-        const cutoffType = rule.type || 'Clicks';
+        const cutoffValue = parseFloat(rule.value) || 0;
+        const cutoffTypeMode = rule.cutoffType || 'percentage'; // 'percentage' or 'count'
+        const clickType = rule.type || 'Clicks'; // 'Clicks', 'Unique Clicks', 'Both'
 
         try {
             const query = {
@@ -261,25 +262,50 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
                 query.publisher_id = rawPubIdStr;
             }
 
+            // Get gross conversions count for percentage calculation
+            let grossConversions = 0;
+            if (cutoffTypeMode === 'percentage') {
+                grossConversions = await Conversion.countDocuments({
+                    camp_id: String(campaign.campaignId),
+                    createdAt: { $gte: startOfDay },
+                    status: { $in: ['approved', 'pending'] } // Count non-sampled, non-rejected
+                });
+                console.log(`[ClicksCutoff] Gross Conversions Today: ${grossConversions}`);
+            }
+
             // Check based on type
-            if (cutoffType === 'Clicks' || cutoffType === 'Both') {
+            if (clickType === 'Clicks' || clickType === 'Both') {
                 // Count total clicks
                 const clickCount = await Click.countDocuments(query);
-                console.log(`[ClicksCutoff] Clicks Check: Limit=${cutoffValue}, Current=${clickCount}`);
                 
-                if (clickCount >= cutoffValue) {
+                // Calculate threshold
+                let threshold = cutoffValue;
+                if (cutoffTypeMode === 'percentage') {
+                    threshold = Math.floor((grossConversions * cutoffValue) / 100);
+                }
+                
+                console.log(`[ClicksCutoff] Clicks Check: Type=${cutoffTypeMode}, Limit=${cutoffValue}${cutoffTypeMode === 'percentage' ? '%' : ''}, Threshold=${threshold}, Current=${clickCount}`);
+                
+                if (clickCount >= threshold && threshold > 0) {
                     console.log(`[ClicksCutoff] CUTOFF EXCEEDED: Clicks limit reached`);
                     return true;
                 }
             }
 
-            if (cutoffType === 'Unique Clicks' || cutoffType === 'Both') {
+            if (clickType === 'Unique Clicks' || clickType === 'Both') {
                 // Count unique clicks (by IP address)
                 const uniqueClicks = await Click.distinct('ip_address', query);
                 const uniqueCount = uniqueClicks.length;
-                console.log(`[ClicksCutoff] Unique Clicks Check: Limit=${cutoffValue}, Current=${uniqueCount}`);
                 
-                if (uniqueCount >= cutoffValue) {
+                // Calculate threshold
+                let threshold = cutoffValue;
+                if (cutoffTypeMode === 'percentage') {
+                    threshold = Math.floor((grossConversions * cutoffValue) / 100);
+                }
+                
+                console.log(`[ClicksCutoff] Unique Clicks Check: Type=${cutoffTypeMode}, Limit=${cutoffValue}${cutoffTypeMode === 'percentage' ? '%' : ''}, Threshold=${threshold}, Current=${uniqueCount}`);
+                
+                if (uniqueCount >= threshold && threshold > 0) {
                     console.log(`[ClicksCutoff] CUTOFF EXCEEDED: Unique clicks limit reached`);
                     return true;
                 }

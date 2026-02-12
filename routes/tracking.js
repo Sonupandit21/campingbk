@@ -343,6 +343,93 @@ const handleConversion = async (req, res) => {
 // ==========================================
 // HANDLE CLICK (Tracking & Redirect)
 // ==========================================
+// Check Click Caps (Cutoff)
+const checkClickCap = async (campaign, publisherId, source) => {
+    if (!campaign || !campaign.sampling || campaign.sampling.length === 0) return false;
+
+    // Normalize inputs
+    const sourceStr = String(source || '');
+    const rawPubIdStr = String(publisherId || '');
+    
+    // Get start of today
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    for (const rule of campaign.sampling) {
+        // Only check rules with metric 'clicks' or 'unique_clicks'
+        if (rule.metric !== 'clicks' && rule.metric !== 'unique_clicks') continue;
+
+        // 1. Check Publisher Match (Reuse logic from checkIsSampled)
+        if (rule.publisherId) {
+            const rulePubIdStr = String(rule.publisherId);
+            // Simple string match for raw ID (since we don't have the pub object here easily, keeping it fast)
+            // Ideally we'd do the full object lookup, but for speed in tracking, raw ID match is preferred if possible.
+            // The handleTracking provides publisher_id from query.
+            if (rawPubIdStr !== rulePubIdStr) continue;
+        }
+
+        // 2. Check Sub ID Match
+        let subIdMatch = false;
+        const ruleSubIds = (rule.subIds || []).map(s => String(s).trim());
+
+        if (rule.subIdsType === 'All') {
+            subIdMatch = true;
+        } else if (rule.subIdsType === 'Include') {
+            if (ruleSubIds.includes(sourceStr)) subIdMatch = true;
+        } else if (rule.subIdsType === 'Exclude') {
+            if (!ruleSubIds.includes(sourceStr)) subIdMatch = true;
+        }
+
+        if (!subIdMatch) continue;
+
+        // 3. Check Cap
+        const limit = parseInt(rule.samplingValue) || 0;
+        const metric = rule.metric;
+
+        try {
+            const query = {
+                camp_id: campaign.campaignId, // stored as string usually? Or match handleTracking logic
+                timestamp: { $gte: startOfDay } // Click model uses 'timestamp'
+            };
+
+            // If rule has specific publisher, filter by it
+            if (rule.publisherId) {
+                query.publisher_id = rawPubIdStr;
+            }
+
+            // Note: If rule is for 'All' publishers (no publisherId set in rule), 
+            // the query counts GLOBAL clicks for this campaign today? 
+            // The UI enforces publisher selection, so usually specific.
+            // But if we support global rules later, this logic holds.
+
+            let currentCount = 0;
+            if (metric === 'clicks') {
+                currentCount = await Click.countDocuments(query);
+            } else if (metric === 'unique_clicks') {
+                const distinctIPs = await Click.distinct('ip_address', query);
+                currentCount = distinctIPs.length;
+            }
+
+            console.log(`[ClickCutoff] Checking ${metric}: Limit=${limit}, Current=${currentCount}`);
+
+            if (currentCount >= limit) {
+                console.log(`[ClickCutoff] LIMIT REACHED for ${metric}. Blocking request.`);
+                return true; // CAP REACHED
+            }
+
+        } catch (err) {
+            console.error('[ClickCutoff] Error checking cap:', err);
+            // On error, preferably don't block? Or block to be safe? 
+            // Standard is fail-open (don't block) to allow traffic.
+        }
+    }
+
+    return false; // No cap reached
+};
+
+// ==========================================
+// HANDLE CLICK (Tracking & Redirect)
+// ==========================================
 const handleTracking = async (req, res) => {
   try {
     const { camp_id, publisher_id, click_id, source, source_id, gaid, idfa, app_name, p1, p2 } = req.query;
@@ -362,21 +449,6 @@ const handleTracking = async (req, res) => {
         // USE FINALCLICKID HERE
         console.log(`Received click: camp=${camp_id}, pub=${publisher_id}, click_id=${finalClickId}`);
 
-        // Log Click (Async) with FINALCLICKID
-        try {
-            Click.create({
-                click_id: finalClickId,
-                camp_id: camp_id,
-                publisher_id: publisher_id || '',
-                source: finalSource,
-                payout: 0,
-                ip_address: req.ip || req.connection.remoteAddress,
-                user_agent: req.get('User-Agent') || ''
-            }).catch(e => console.error('Click logging background error:', e));
-        } catch (e) {
-            console.error('Click logging error:', e);
-        }
-
         let campaign;
         try {
             // Attempt efficient lookup first
@@ -389,14 +461,45 @@ const handleTracking = async (req, res) => {
 
         // Fallback: If not found or invalid format, scan all to support legacy string/int IDs
         if (!campaign) {
-            const allCampaigns = await Campaign.find({}); // Optimization: select only needed fields? .select('id defaultUrl overrideUrl')
-            // Match _id or potential 'id' field loosely
-            campaign = allCampaigns.find(c => c._id.toString() == camp_id || c.campaignId == camp_id || c.id == camp_id);
+             // Optimized lookup for numeric campaignId too
+             if (!isNaN(camp_id)) {
+                 campaign = await Campaign.findOne({ campaignId: Number(camp_id) });
+             }
+             if (!campaign) {
+                const allCampaigns = await Campaign.find({}); // Optimization: select only needed fields? .select('id defaultUrl overrideUrl')
+                // Match _id or potential 'id' field loosely
+                campaign = allCampaigns.find(c => c._id.toString() == camp_id || c.campaignId == camp_id || c.id == camp_id);
+             }
         }
 
         if (!campaign) {
             console.error(`Campaign not found for ID: ${camp_id}`);
             return res.status(404).send('Campaign not found');
+        }
+
+        // === ID & CUTOFF CHECK ===
+        // Check if Click/Unique Click Cap is reached
+        // We do this BEFORE creating the click to prevent going over cap significantly
+        // (Though exact race conditions might still allow a few over)
+        const isCapReached = await checkClickCap(campaign, publisher_id, finalSource);
+        
+        if (isCapReached) {
+            return res.status(403).send('Campaign limit reached for today.');
+        }
+
+        // Log Click (Async) with FINALCLICKID
+        try {
+            Click.create({
+                click_id: finalClickId,
+                camp_id: camp_id,  // Storing input camp_id (which might be string) or campaign.campaignId? Model allows string.
+                publisher_id: publisher_id || '',
+                source: finalSource,
+                payout: 0,
+                ip_address: req.ip || req.connection.remoteAddress,
+                user_agent: req.get('User-Agent') || ''
+            }).catch(e => console.error('Click logging background error:', e));
+        } catch (e) {
+            console.error('Click logging error:', e);
         }
 
         // === DETERMINING TARGET URL (With Fallback) ===
@@ -444,5 +547,9 @@ const handleTracking = async (req, res) => {
 // Tracking and Postback Endpoints
 router.get('/', handleTracking);
 router.get('/conversion', handleConversion); // Dedicated conversion endpoint
+
+// Export functions for testing
+router.checkClickCap = checkClickCap;
+router.handleTracking = handleTracking;
 
 module.exports = router;

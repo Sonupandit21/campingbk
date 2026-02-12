@@ -41,6 +41,7 @@ const campaignSchema = new mongoose.Schema({
     subIds: [String],
     samplingType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
     samplingValue: Number,
+    metric: { type: String, enum: ['conversion', 'clicks', 'unique_clicks'], default: 'conversion' },
     goalName: { type: String, default: 'Gross Conversions' }
   }]
 }, {

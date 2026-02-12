@@ -7,6 +7,11 @@ const auth = require('../middleware/auth');
 // Get all campaigns
 router.get('/', auth, async (req, res) => {
   try {
+    // We need to modify getAllCampaigns to accept a filter or just allow finding by user
+    // Since getAllCampaigns is in utils/campaignStore.js and does `Campaign.find()`, 
+    // we should validly filter here.
+    // However, the `getAllCampaigns` function currently returns ALL. 
+    // Let's modify the utils function OR just do the query here for simplicity since we have the model.
     const Campaign = require('../models/Campaign');
     const campaigns = await Campaign.find({ created_by: req.user.id }).sort({ campaignId: -1 });
     
@@ -19,59 +24,6 @@ router.get('/', auth, async (req, res) => {
   } catch (error) {
     console.error('Get campaigns error:', error);
     res.status(500).json({ error: 'Failed to fetch campaigns' });
-  }
-});
-
-// Get campaign details with stats
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const Campaign = require('../models/Campaign');
-    const Click = require('../models/Click');
-    const mongoose = require('mongoose');
-
-    let campaign;
-    const isObjectId = mongoose.Types.ObjectId.isValid(id);
-
-    if (!isObjectId && !isNaN(id)) {
-      campaign = await Campaign.findOne({ campaignId: Number(id) });
-    } else if (isObjectId) {
-      campaign = await Campaign.findById(id);
-    }
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
-
-    // Fetch Stats
-    // 1. Total Clicks
-    // Match either string ID or number ID or ObjectId for camp_id in Clicks (schema says String)
-    // We should probably match loosely to be safe, but adhering to existing patterns:
-    // Tracking uses `camp_id` as string usually.
-    const campaignIdStr = campaign.campaignId ? String(campaign.campaignId) : campaign._id.toString();
-    const campaignIdObj = campaign._id.toString();
-    
-    // Construct query to match how clicks are stored (likely string)
-    const statsQuery = { 
-        camp_id: { $in: [campaignIdStr, campaignIdObj] } 
-    };
-
-    const clicksCount = await Click.countDocuments(statsQuery);
-
-    // 2. Unique Clicks (Unique IPs)
-    const uniqueClicks = await Click.distinct('ip_address', statsQuery);
-    const uniqueClicksCount = uniqueClicks.length;
-
-    res.json({
-      ...campaign.toObject(),
-      id: campaign.campaignId, // maintain consistency
-      clicks: clicksCount,
-      unique_clicks: uniqueClicksCount
-    });
-
-  } catch (error) {
-    console.error('Get campaign details error:', error);
-    res.status(500).json({ error: 'Failed to fetch campaign details' });
   }
 });
 

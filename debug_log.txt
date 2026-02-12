@@ -1,0 +1,24 @@
+Connected to DB
+Checking clicks for Publisher: sonu kumar
+ObjectId: 6982f9cf6b2e7e0ac15a521c
+NumericId: 2
+Total Clicks for publisher_id "2": 18
+Total Clicks for publisher_id "6982f9cf6b2e7e0ac15a521c": 0
+Clicks for Camp "13" & Pub "2": 14
+Recent 3 clicks for this publisher: [
+  {
+    "timestamp": "2026-02-12T08:19:18.231Z",
+    "click_id": "698d8d0675fb88587e706119",
+    "camp_id": "13"
+  },
+  {
+    "timestamp": "2026-02-12T06:06:26.676Z",
+    "click_id": "698d6de21e07be59d21fa156",
+    "camp_id": "13"
+  },
+  {
+    "timestamp": "2026-02-12T06:05:55.982Z",
+    "click_id": "698d6dc31e07be59d21fa14d",
+    "camp_id": "13"
+  }
+]

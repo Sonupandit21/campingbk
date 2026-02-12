@@ -7,6 +7,11 @@ const auth = require('../middleware/auth');
 // Get all campaigns
 router.get('/', auth, async (req, res) => {
   try {
+    // We need to modify getAllCampaigns to accept a filter or just allow finding by user
+    // Since getAllCampaigns is in utils/campaignStore.js and does `Campaign.find()`, 
+    // we should validly filter here.
+    // However, the `getAllCampaigns` function currently returns ALL. 
+    // Let's modify the utils function OR just do the query here for simplicity since we have the model.
     const Campaign = require('../models/Campaign');
     const campaigns = await Campaign.find({ created_by: req.user.id }).sort({ campaignId: -1 });
     

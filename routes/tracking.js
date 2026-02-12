@@ -191,6 +191,109 @@ const checkIsSampled = async (campaign, publisher, source, rawPublisherId) => {
 };
 // End Sampling Logic
 
+// Start Clicks Cutoff Logic
+const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) => {
+    if (!campaign || !campaign.clicksSettings || campaign.clicksSettings.length === 0) return false;
+
+    // Normalize inputs
+    const sourceStr = String(source || '');
+    const rawPubIdStr = String(rawPublisherId || '');
+
+    // Get start of today for counting
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    for (const rule of campaign.clicksSettings) {
+        // 1. Check Publisher Match
+        if (rule.publisherId) {
+            let match = false;
+            const rulePubIdStr = String(rule.publisherId);
+            
+            console.log(`[ClicksCutoff] Checking Rule PubID: ${rulePubIdStr} vs Publisher ID: ${rawPubIdStr}`);
+
+            // Check against publisher object if available
+            if (publisher) {
+                try {
+                    if (publisher.id && String(publisher.id) === rulePubIdStr) match = true;
+                    if (publisher._id && publisher._id.toString() === rulePubIdStr) match = true;
+                    if (publisher.referenceId && String(publisher.referenceId) === rulePubIdStr) match = true;
+                } catch (err) {
+                    console.error('[ClicksCutoff] Error comparing publisher IDs:', err);
+                }
+            }
+            
+            // Check raw ID fallback
+            if (!match && rawPubIdStr === rulePubIdStr) {
+                match = true;
+                console.log('[ClicksCutoff] Matched via Raw Publisher ID');
+            }
+            
+            if (!match) {
+                continue; // Publisher mismatch
+            }
+        }
+
+        // 2. Check Sub ID (Source) Match
+        let subIdMatch = false;
+        const ruleSubIds = (rule.subIds || []).map(s => String(s).trim());
+
+        if (rule.subIdsType === 'All') {
+            subIdMatch = true;
+        } else if (rule.subIdsType === 'Include') {
+            if (ruleSubIds.includes(sourceStr)) subIdMatch = true;
+        } else if (rule.subIdsType === 'Exclude') {
+            if (!ruleSubIds.includes(sourceStr)) subIdMatch = true;
+        }
+
+        if (!subIdMatch) continue;
+
+        // 3. Apply Clicks Cutoff Logic
+        const cutoffValue = parseInt(rule.value) || 0;
+        const cutoffType = rule.type || 'Clicks';
+
+        try {
+            const query = {
+                camp_id: String(campaign.campaignId),
+                createdAt: { $gte: startOfDay }
+            };
+            
+            if (rule.publisherId) {
+                query.publisher_id = rawPubIdStr;
+            }
+
+            // Check based on type
+            if (cutoffType === 'Clicks' || cutoffType === 'Both') {
+                // Count total clicks
+                const clickCount = await Click.countDocuments(query);
+                console.log(`[ClicksCutoff] Clicks Check: Limit=${cutoffValue}, Current=${clickCount}`);
+                
+                if (clickCount >= cutoffValue) {
+                    console.log(`[ClicksCutoff] CUTOFF EXCEEDED: Clicks limit reached`);
+                    return true;
+                }
+            }
+
+            if (cutoffType === 'Unique Clicks' || cutoffType === 'Both') {
+                // Count unique clicks (by IP address)
+                const uniqueClicks = await Click.distinct('ip_address', query);
+                const uniqueCount = uniqueClicks.length;
+                console.log(`[ClicksCutoff] Unique Clicks Check: Limit=${cutoffValue}, Current=${uniqueCount}`);
+                
+                if (uniqueCount >= cutoffValue) {
+                    console.log(`[ClicksCutoff] CUTOFF EXCEEDED: Unique clicks limit reached`);
+                    return true;
+                }
+            }
+        } catch (err) {
+            console.error('[ClicksCutoff] Error checking cutoff:', err);
+            return false; // Don't reject on error
+        }
+    }
+
+    return false; // No cutoff exceeded
+};
+// End Clicks Cutoff Logic
+
 // ==========================================
 // HANDLE CONVERSION (Inbound Postback)
 // ==========================================
@@ -285,6 +388,24 @@ const handleConversion = async (req, res) => {
         } else {
             console.log('[Conversion] Marked as APPROVED');
              // Already 'approved' by default
+        }
+
+        // 5d. Check Clicks Cutoff
+        let isCutoff = false;
+        if (campaign && publisherObj) {
+            isCutoff = await checkClicksCutoff(campaign, publisherObj, source, publisher_id);
+        }
+
+        if (isCutoff) {
+            console.log('[Conversion] REJECTED: Clicks cutoff exceeded');
+            newConversion.status = 'rejected';
+            await newConversion.save();
+            
+            // Return early - do not fire postbacks
+            return res.status(200).json({ 
+                success: true, 
+                message: 'Conversion rejected: Clicks limit exceeded' 
+            });
         }
         
         console.log('[Conversion] Saved to DB');

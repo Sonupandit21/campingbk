@@ -367,9 +367,9 @@ const handleConversion = async (req, res) => {
 
         // 5c. Check Sampling
         let isSampled = false;
+        let publisherObj = null; // Declare outside to be accessible for clicks cutoff
         if (campaign) {
             // Fetch Publisher for Robust Matching
-            let publisherObj = null;
             if (publisher_id) {
                 try {
                     const allPublishers = await getAllPublishers();

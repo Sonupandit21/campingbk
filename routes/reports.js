@@ -129,10 +129,32 @@ router.get('/', auth, async (req, res) => {
       }
     ];
 
+    // Aggregation to get sampled clicks (clicks that led to sampled conversions)
+    const sampledClicksPipeline = [
+      { 
+        $match: { 
+          ...conversionMatch,
+          status: 'sampled'
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            camp_id: "$camp_id",
+            publisher_id: "$publisher_id",
+            source: "$source"
+          },
+          sampled_clicks: { $sum: 1 }
+        }
+      }
+    ];
+
     // Run aggregations in parallel
-    const [clickResults, conversionResults] = await Promise.all([
+    const [clickResults, conversionResults, sampledClicksResults] = await Promise.all([
       Click.aggregate(clickPipeline),
-      Conversion.aggregate(conversionPipeline)
+      Conversion.aggregate(conversionPipeline),
+      Conversion.aggregate(sampledClicksPipeline)
     ]);
 
     // Merge results
@@ -150,10 +172,10 @@ router.get('/', auth, async (req, res) => {
           camp_id: item._id.camp_id,
           publisher_id: item._id.publisher_id,
           source: item._id.source || '',
+          gross_clicks: 0,
           clicks: 0,
           unique_clicks: 0,
-          clicks: 0,
-          unique_clicks: 0,
+          sampled_clicks: 0,
           conversions: 0,
           gross_conversions: 0,
           sampled_conversions: 0,
@@ -161,6 +183,7 @@ router.get('/', auth, async (req, res) => {
         });
       }
       const entry = reportMap.get(key);
+      entry.gross_clicks += item.clicks;
       entry.clicks += item.clicks;
       entry.unique_clicks += item.unique_clicks;
     });
@@ -174,7 +197,10 @@ router.get('/', auth, async (req, res) => {
             camp_id: item._id.camp_id,
             publisher_id: item._id.publisher_id,
             source: item._id.source || '',
+            gross_clicks: 0,
             clicks: 0,
+            unique_clicks: 0,
+            sampled_clicks: 0,
             conversions: 0,
             gross_conversions: 0,
             sampled_conversions: 0,
@@ -186,6 +212,29 @@ router.get('/', auth, async (req, res) => {
       entry.gross_conversions += item.gross_conversions;
       entry.sampled_conversions += item.sampled_conversions;
       entry.payout += item.payout;
+    });
+
+    // Process sampled clicks
+    sampledClicksResults.forEach(item => {
+      const key = getKey(item);
+      if (!reportMap.has(key)) {
+        reportMap.set(key, {
+            date: item._id.date,
+            camp_id: item._id.camp_id,
+            publisher_id: item._id.publisher_id,
+            source: item._id.source || '',
+            gross_clicks: 0,
+            clicks: 0,
+            unique_clicks: 0,
+            sampled_clicks: 0,
+            conversions: 0,
+            gross_conversions: 0,
+            sampled_conversions: 0,
+            payout: 0
+        });
+      }
+      const entry = reportMap.get(key);
+      entry.sampled_clicks += item.sampled_clicks;
     });
 
     // Enrich with Campaign and Publisher names

@@ -293,12 +293,13 @@ router.get('/', auth, async (req, res) => {
         
         return {
             ...row,
+            clicks: row.gross_clicks - sampledClicks, // Subtract sampled clicks from gross clicks
             sampled_clicks: sampledClicks, // Override with calculated value
             campaignName: camp.title || `Unknown (${row.camp_id})`,
             goalName: camp.goalName || 'N/A',
             publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
-            cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0,
-            epc: row.clicks > 0 ? (row.payout / row.clicks).toFixed(4) : 0
+            cr: (row.gross_clicks - sampledClicks) > 0 ? ((row.conversions / (row.gross_clicks - sampledClicks)) * 100).toFixed(2) : 0,
+            epc: (row.gross_clicks - sampledClicks) > 0 ? (row.payout / (row.gross_clicks - sampledClicks)).toFixed(4) : 0
         };
     });
 

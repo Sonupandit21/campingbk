@@ -8,6 +8,10 @@ const clickSchema = new mongoose.Schema({
   payout: Number,
   ip_address: String,
   user_agent: String,
+  isSampled: {
+    type: Boolean,
+    default: false
+  },
   timestamp: {
     type: Date,
     default: Date.now

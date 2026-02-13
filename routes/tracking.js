@@ -504,21 +504,7 @@ const handleTracking = async (req, res) => {
         // USE FINALCLICKID HERE
         console.log(`Received click: camp=${camp_id}, pub=${publisher_id}, click_id=${finalClickId}`);
 
-        // Log Click (Async) with FINALCLICKID
-        try {
-            Click.create({
-                click_id: finalClickId,
-                camp_id: camp_id,
-                publisher_id: publisher_id || '',
-                source: finalSource,
-                payout: 0,
-                ip_address: req.ip || req.connection.remoteAddress,
-                user_agent: req.get('User-Agent') || ''
-            }).catch(e => console.error('Click logging background error:', e));
-        } catch (e) {
-            console.error('Click logging error:', e);
-        }
-
+        // Fetch campaign first to check cutoff settings
         let campaign;
         try {
             // Attempt efficient lookup first
@@ -539,6 +525,46 @@ const handleTracking = async (req, res) => {
         if (!campaign) {
             console.error(`Campaign not found for ID: ${camp_id}`);
             return res.status(404).send('Campaign not found');
+        }
+
+        // Check if click should be sampled before logging
+        let isSampled = false;
+        if (campaign && campaign.clicksSettings && campaign.clicksSettings.length > 0) {
+            try {
+                // Fetch publisher object for cutoff check
+                let publisherObj = null;
+                if (publisher_id) {
+                    const allPublishers = await getAllPublishers();
+                    publisherObj = allPublishers.find(p => 
+                        p.id == publisher_id || 
+                        p.referenceId == publisher_id || 
+                        p._id == publisher_id
+                    );
+                }
+                
+                // Check cutoff - this returns true if cutoff is exceeded
+                isSampled = await checkClicksCutoff(campaign, publisherObj, finalSource, publisher_id);
+                console.log(`[Click] isSampled check result: ${isSampled}`);
+            } catch (err) {
+                console.error('[Click] Error checking cutoff:', err);
+            }
+        }
+
+        // Log Click with isSampled flag (synchronous to ensure it's saved before redirect)
+        try {
+            await Click.create({
+                click_id: finalClickId,
+                camp_id: camp_id,
+                publisher_id: publisher_id || '',
+                source: finalSource,
+                payout: 0,
+                isSampled: isSampled,
+                ip_address: req.ip || req.connection.remoteAddress,
+                user_agent: req.get('User-Agent') || ''
+            });
+            console.log(`[Click] Saved with isSampled=${isSampled}`);
+        } catch (e) {
+            console.error('Click logging error:', e);
         }
 
         // === DETERMINING TARGET URL (With Fallback) ===

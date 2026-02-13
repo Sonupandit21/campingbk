@@ -146,12 +146,35 @@ router.get('/', auth, async (req, res) => {
         }
       }
     ];
+    // End Clicks Aggregation Pipeline
 
-    // Sampled clicks will be calculated dynamically based on campaign clicksSettings
-    // No need for a separate aggregation pipeline parallel
-    const [clickResults, conversionResults] = await Promise.all([
+    // Sampled Clicks Aggregation Pipeline - Count clicks marked as sampled
+    const sampledClicksPipeline = [
+      { 
+        $match: { 
+          ...match,
+          isSampled: true  // Count only clicks marked as sampled at tracking time
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+            camp_id: "$camp_id",
+            publisher_id: "$publisher_id",
+            source: "$source"
+          },
+          sampled_clicks: { $sum: 1 }
+        }
+      }
+    ];
+    // End Sampled Clicks Aggregation Pipeline
+
+    // Execute all aggregations in parallel
+    const [clickResults, conversionResults, sampledClicksResults] = await Promise.all([
       Click.aggregate(clickPipeline),
-      Conversion.aggregate(conversionPipeline)
+      Conversion.aggregate(conversionPipeline),
+      Click.aggregate(sampledClicksPipeline)
     ]);
 
     // Merge results
@@ -211,7 +234,16 @@ router.get('/', auth, async (req, res) => {
       entry.payout += item.payout;
     });
 
-    // Sampled clicks will be calculated dynamically below
+    // Process sampled clicks
+    sampledClicksResults.forEach(item => {
+      const key = getKey(item);
+      if (reportMap.has(key)) {
+        const entry = reportMap.get(key);
+        entry.sampled_clicks = item.sampled_clicks;
+      }
+    });
+
+    // Now fetch campaign and publisher details to enrich the report datamically below
 
     // Enrich with Campaign and Publisher names
     // Fetch all needed campaigns and publishers first to minimize DB calls
@@ -236,17 +268,18 @@ router.get('/', auth, async (req, res) => {
     
     const campaigns = await Campaign.find({
         campaignId: { $in: numericCampIds } 
-    }).select('campaignId title defaultGoalName clicksSettings');
+    }).select('campaignId title defaultGoalName');
 
     const publishers = await Publisher.find({
         publisherId: { $in: distinctPubIds }
     }).select('publisherId fullName');
 
     const campMap = {};
-    campaigns.forEach(c => campMap[c.campaignId] = { 
-        title: c.title, 
-        goalName: c.defaultGoalName,
-        clicksSettings: c.clicksSettings || []
+    campaigns.forEach(c => {
+        campMap[c.campaignId] = { 
+            title: c.title, 
+            goalName: c.defaultGoalName
+        };
     });
 
     const pubMap = {};
@@ -256,50 +289,18 @@ router.get('/', auth, async (req, res) => {
     const report = Array.from(reportMap.values()).map(row => {
         const camp = campMap[row.camp_id] || {};
         
-        // Calculate sampled clicks based on campaign's clicksSettings
-        let sampledClicks = 0;
-        if (camp.clicksSettings && camp.clicksSettings.length > 0) {
-            // Find matching rule for this publisher/source
-            const matchingRule = camp.clicksSettings.find(rule => {
-                // Check publisher match (if rule has publisherId)
-                if (rule.publisherId && rule.publisherId !== row.publisher_id) {
-                    return false;
-                }
-                
-                // Check source match based on subIdsType
-                if (rule.subIdsType === 'All') {
-                    return true;
-                } else if (rule.subIdsType === 'Include') {
-                    return (rule.subIds || []).includes(row.source);
-                } else if (rule.subIdsType === 'Exclude') {
-                    return !(rule.subIds || []).includes(row.source);
-                }
-                return false;
-            });
-            
-            if (matchingRule) {
-                const cutoffValue = parseFloat(matchingRule.value) || 0;
-                const cutoffType = matchingRule.cutoffType || 'percentage';
-                
-                if (cutoffType === 'percentage') {
-                    // Calculate sampled clicks as percentage of gross clicks
-                    sampledClicks = Math.round(row.gross_clicks * (cutoffValue / 100));
-                } else {
-                    // For 'count' type, sampled clicks = the cutoff value itself
-                    sampledClicks = Math.min(cutoffValue, row.gross_clicks);
-                }
-            }
-        }
+        // Use sampled_clicks from database (already set from sampledClicksResults)
+        // Calculate non-sampled clicks
+        const nonSampledClicks = row.gross_clicks - row.sampled_clicks;
         
         return {
             ...row,
-            clicks: row.gross_clicks - sampledClicks, // Subtract sampled clicks from gross clicks
-            sampled_clicks: sampledClicks, // Override with calculated value
+            clicks: nonSampledClicks, // Override clicks to exclude sampled clicks
             campaignName: camp.title || `Unknown (${row.camp_id})`,
             goalName: camp.goalName || 'N/A',
             publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
-            cr: (row.gross_clicks - sampledClicks) > 0 ? ((row.conversions / (row.gross_clicks - sampledClicks)) * 100).toFixed(2) : 0,
-            epc: (row.gross_clicks - sampledClicks) > 0 ? (row.payout / (row.gross_clicks - sampledClicks)).toFixed(4) : 0
+            cr: nonSampledClicks > 0 ? ((row.conversions / nonSampledClicks) * 100).toFixed(2) : 0,
+            epc: nonSampledClicks > 0 ? (row.payout / nonSampledClicks).toFixed(4) : 0
         };
     });
 

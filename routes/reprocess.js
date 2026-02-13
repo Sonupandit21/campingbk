@@ -6,6 +6,9 @@ const Conversion = require('../models/Conversion');
 const auth = require('../middleware/auth');
 
 // Helper function to reprocess conversions based on sampling rules
+// IMPORTANT: This function updates the 'status' field to reflect current sampling rules,
+// but NEVER modifies 'originalStatus' which preserves the historical sampling decision.
+// This ensures that reports show what was actually sampled at the time, not recalculated values.
 const reprocessConversions = async (campaignId, samplingRules) => {
     try {
         // Get all conversions for this campaign

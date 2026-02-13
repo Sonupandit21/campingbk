@@ -1,112 +1,81 @@
+// Debug script to check what's in the database and what reports are returning
 const mongoose = require('mongoose');
-const Click = require('./models/Click');
-const Conversion = require('./models/Conversion');
-const Campaign = require('./models/Campaign');
-const Publisher = require('./models/Publisher');
 require('dotenv').config();
 
-async function runReportDebug() {
-  console.log('--- START REPORT DEBUG ---');
-  
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+
+async function debugReports() {
   try {
-    // Simulate Request Params
-    const startDate = '2026-01-30';
-    const endDate = '2026-02-06';
-    const campaignId = undefined;
-    const publisherId = undefined;
-
-    console.log(`Params: ${startDate} to ${endDate}`);
-
-    // Base match criteria
-    const match = {};
-    if (startDate || endDate) {
-      match.timestamp = {};
-      if (startDate) match.timestamp.$gte = new Date(startDate);
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        match.timestamp.$lte = end;
-      }
-    }
+    await mongoose.connect(MONGO_URI);
+    console.log('✓ Connected to MongoDB\n');
     
-    // Note: Click/Conversion models store IDs as Strings based on current schema
-    if (campaignId) match.camp_id = campaignId;
-    if (publisherId) match.publisher_id = publisherId;
-
-    console.log('Match Criteria:', JSON.stringify(match));
-
-    // Define aggregation pipeline for Clicks
-    const clickPipeline = [
-      { $match: match },
+    const Conversion = require('./models/Conversion');
+    
+    // Get all conversions for campaign 13
+    const conversions = await Conversion.find({ camp_id: '13' }).lean();
+    
+    console.log(`Found ${conversions.length} conversions for campaign 13:\n`);
+    
+    conversions.forEach((conv, idx) => {
+      console.log(`Conversion ${idx + 1}:`);
+      console.log(`  click_id: ${conv.click_id}`);
+      console.log(`  status: ${conv.status}`);
+      console.log(`  originalStatus: ${conv.originalStatus || 'NOT SET'}`);
+      console.log(`  createdAt: ${conv.createdAt}`);
+      console.log('');
+    });
+    
+    // Count by status
+    const statusCounts = await Conversion.aggregate([
+      { $match: { camp_id: '13' } },
+      { $group: { 
+        _id: '$status',
+        count: { $sum: 1 }
+      }}
+    ]);
+    
+    console.log('Counts by status field:');
+    statusCounts.forEach(s => console.log(`  ${s._id}: ${s.count}`));
+    
+    // Count by originalStatus
+    const originalStatusCounts = await Conversion.aggregate([
+      { $match: { camp_id: '13' } },
+      { $group: { 
+        _id: '$originalStatus',
+        count: { $sum: 1 }
+      }}
+    ]);
+    
+    console.log('\nCounts by originalStatus field:');
+    originalStatusCounts.forEach(s => console.log(`  ${s._id || 'NULL/UNDEFINED'}: ${s.count}`));
+    
+    // Test the report aggregation
+    console.log('\n--- Testing Report Aggregation ---');
+    const reportResult = await Conversion.aggregate([
+      { $match: { camp_id: '13' } },
       {
         $group: {
-          _id: {
-             date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
-             camp_id: "$camp_id",
-             publisher_id: "$publisher_id"
+          _id: null,
+          total: { $sum: 1 },
+          sampled_by_status: {
+            $sum: { $cond: [{ $eq: ['$status', 'sampled'] }, 1, 0] }
           },
-          clicks: { $sum: 1 }
+          sampled_by_originalStatus: {
+            $sum: { $cond: [{ $eq: ['$originalStatus', 'sampled'] }, 1, 0] }
+          }
         }
       }
-    ];
-
-    console.log('Running Click Aggregation...');
-    // RUN SEPARATELY TO ISOLATE
-    try {
-        const clickTest = await Click.aggregate(clickPipeline);
-        console.log(`Click Aggregation Success. Result Count: ${clickTest.length}`);
-    } catch (e) {
-        console.error('CLICK AGGREGATION FAILED:', e);
-        throw e; // Stop here if fails
-    }
-
-    // Define aggregation pipeline for Conversions
-    const conversionMatch = { ...match };
-    if (match.timestamp) {
-        conversionMatch.createdAt = match.timestamp;
-        delete conversionMatch.timestamp;
-    }
-
-    const conversionPipeline = [
-      { $match: conversionMatch },
-      {
-        $group: {
-          _id: {
-             date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-             camp_id: "$camp_id",
-             publisher_id: "$publisher_id"
-          },
-          conversions: { $sum: 1 },
-          payout: { $sum: "$payout" }
-        }
-      }
-    ];
-
-    console.log('Running Conversion Aggregation...');
-    try {
-        const convTest = await Conversion.aggregate(conversionPipeline);
-        console.log(`Conversion Aggregation Success. Result Count: ${convTest.length}`);
-    } catch (e) {
-         console.error('CONVERSION AGGREGATION FAILED:', e);
-         throw e;
-    }
-
-    console.log('--- END REPORT DEBUG: SUCCESS ---');
-
+    ]);
+    
+    console.log('Aggregation result:');
+    console.log(JSON.stringify(reportResult[0], null, 2));
+    
+    await mongoose.disconnect();
+    process.exit(0);
   } catch (error) {
-    console.error('--- REPORT DEBUG FATAL ERROR ---');
-    console.error(error);
-  } finally {
-      process.exit();
+    console.error('Error:', error);
+    process.exit(1);
   }
 }
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Connected to DB');
-    runReportDebug();
-  })
-  .catch(err => {
-    console.error('DB Connection Failed:', err);
-    process.exit(1);
-  });
+debugReports();

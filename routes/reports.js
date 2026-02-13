@@ -117,7 +117,7 @@ router.get('/', auth, async (req, res) => {
           gross_conversions: { $sum: 1 },
           sampled_conversions: { 
             $sum: { 
-                $cond: [{ $eq: ["$status", "sampled"] }, 1, 0] 
+                $cond: [{ $eq: ["$originalStatus", "sampled"] }, 1, 0] 
             } 
           },
           payout: { 
@@ -134,7 +134,7 @@ router.get('/', auth, async (req, res) => {
       { 
         $match: { 
           ...conversionMatch,
-          status: 'sampled'
+          originalStatus: 'sampled'
         } 
       },
       {

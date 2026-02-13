@@ -361,7 +361,8 @@ const handleConversion = async (req, res) => {
             app_name,
             p1,
             p2,
-            status: 'approved' // Default
+            status: 'approved', // Default
+            originalStatus: 'approved' // Preserve initial status
         });
 
         // 5b. Fetch Campaign for Sampling Check
@@ -403,10 +404,11 @@ const handleConversion = async (req, res) => {
         if (isSampled) {
              console.log('[Conversion] Marked as SAMPLED');
              newConversion.status = 'sampled';
+             newConversion.originalStatus = 'sampled'; // Preserve initial sampling decision
              await newConversion.save();
         } else {
             console.log('[Conversion] Marked as APPROVED');
-             // Already 'approved' by default
+             // Already 'approved' by default (both status and originalStatus)
         }
 
         // 5d. Check Clicks Cutoff

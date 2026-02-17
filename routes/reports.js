@@ -10,16 +10,11 @@ const auth = require('../middleware/auth');
 
 router.get('/', auth, async (req, res) => {
   try {
-    const { startDate, endDate, campaignId, publisherId, source } = req.query;
+    const { startDate, endDate, campaignId, publisherId } = req.query;
     const userId = req.user.id; 
     const isPublisher = req.user.role === 'publisher';
 
     const match = {};
-
-    // Source Filter
-    if (source) {
-      match.source = source;
-    }
 
     // Logic separation based on Role
     if (isPublisher) {

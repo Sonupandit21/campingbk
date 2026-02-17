@@ -255,57 +255,43 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
         try {
             const query = {
                 camp_id: String(campaign.campaignId),
-                createdAt: { $gte: startOfDay }
+                timestamp: { $gte: startOfDay } // FIX: Use 'timestamp' instead of 'createdAt' for clicks
             };
             
             if (rule.publisherId) {
                 query.publisher_id = rawPubIdStr;
             }
 
-            // Check based on type
-            if (clickType === 'Clicks' || clickType === 'Both') {
-                // Count total clicks
-                const clickCount = await Click.countDocuments(query);
-                
-                // Calculate threshold
-                let threshold = cutoffValue;
-                if (cutoffTypeMode === 'percentage') {
-                    // For percentage mode: use the value directly as a threshold percentage
-                    // This means: allow only X% worth of clicks before rejecting
-                    // We interpret this as: allow X clicks per 100 expected clicks
-                    // In practice, we use the percentage value as the numeric threshold
-                    threshold = cutoffValue; // 60% = allow 60 clicks
-                }
-                
-                console.log(`[ClicksCutoff] Clicks Check: Type=${cutoffTypeMode}, Limit=${cutoffValue}${cutoffTypeMode === 'percentage' ? '%' : ''}, Threshold=${threshold}, Current=${clickCount}`);
-                
-                if (clickCount >= threshold && threshold > 0) {
-                    console.log(`[ClicksCutoff] CUTOFF EXCEEDED: Clicks limit reached`);
+            // Apply Clicks Cutoff Logic
+            if (cutoffTypeMode === 'percentage') {
+                // Probabilistic Sampling: Each click has a X% chance of being sampled
+                const randomVal = Math.random() * 100;
+                if (randomVal < cutoffValue) {
+                    console.log(`[ClicksCutoff] HIT: Percentage Rule (Val: ${cutoffValue}%, RNG: ${randomVal.toFixed(2)})`);
                     return true;
                 }
-            }
+            } else {
+                // Fixed Count Logic: Sample all clicks AFTER the Nth click
+                if (clickType === 'Clicks' || clickType === 'Both') {
+                    const clickCount = await Click.countDocuments(query);
+                    console.log(`[ClicksCutoff] Clicks Count Check: Limit=${cutoffValue}, Current=${clickCount}`);
+                    if (clickCount >= cutoffValue && cutoffValue > 0) {
+                        return true;
+                    }
+                }
 
-            if (clickType === 'Unique Clicks' || clickType === 'Both') {
-                // Count unique clicks (by IP address)
-                const uniqueClicks = await Click.distinct('ip_address', query);
-                const uniqueCount = uniqueClicks.length;
-                
-                // Calculate threshold
-                let threshold = cutoffValue;
-                if (cutoffTypeMode === 'percentage') {
-                    threshold = cutoffValue; // 60% = allow 60 unique clicks
-                }
-                
-                console.log(`[ClicksCutoff] Unique Clicks Check: Type=${cutoffTypeMode}, Limit=${cutoffValue}${cutoffTypeMode === 'percentage' ? '%' : ''}, Threshold=${threshold}, Current=${uniqueCount}`);
-                
-                if (uniqueCount >= threshold && threshold > 0) {
-                    console.log(`[ClicksCutoff] CUTOFF EXCEEDED: Unique clicks limit reached`);
-                    return true;
+                if (clickType === 'Unique Clicks' || clickType === 'Both') {
+                    const uniqueClicks = await Click.distinct('ip_address', query);
+                    const uniqueCount = uniqueClicks.length;
+                    console.log(`[ClicksCutoff] Unique Count Check: Limit=${cutoffValue}, Current=${uniqueCount}`);
+                    if (uniqueCount >= cutoffValue && cutoffValue > 0) {
+                        return true;
+                    }
                 }
             }
         } catch (err) {
             console.error('[ClicksCutoff] Error checking cutoff:', err);
-            return false; // Don't reject on error
+            return false;
         }
     }
 

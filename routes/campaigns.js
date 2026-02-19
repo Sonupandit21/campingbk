@@ -13,7 +13,13 @@ router.get('/', auth, async (req, res) => {
     // However, the `getAllCampaigns` function currently returns ALL. 
     // Let's modify the utils function OR just do the query here for simplicity since we have the model.
     const Campaign = require('../models/Campaign');
-    const campaigns = await Campaign.find({ created_by: req.user.id }).sort({ campaignId: -1 });
+    let query = { created_by: req.user.id };
+    
+    if (req.user.role === 'superadmin') {
+        query = {}; // All campaigns
+    }
+
+    const campaigns = await Campaign.find(query).sort({ campaignId: -1 });
     
     const formatted = campaigns.map(c => ({
         ...c.toObject(),

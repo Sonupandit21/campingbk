@@ -30,28 +30,39 @@ router.get('/', auth, async (req, res) => {
         // 3. Ignore query `publisherId` or warn if different? 
         // We fundamentally force it to be their ID above.
     } else {
-        // ADMIN/USER VIEW
-        // Get user's campaigns to filter
-        const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
-        const userCampIds = userCampaigns.map(c => c.campaignId.toString());
+        // ADMIN/USER/SUPERADMIN VIEW
+        const isSuperAdmin = req.user.role === 'superadmin';
         
-        // If the user has no campaigns, return empty report immediately
-        if (userCampIds.length === 0) {
-            return res.json([]);
-        }
-
-        // STRICT FILTERING: Only match campaigns owned by user
-        if (campaignId) {
-            if (!userCampIds.includes(campaignId.toString())) {
-                 return res.json([]); // Unauthorized access to campaign
+        // Match campaigns based on role
+        if (!isSuperAdmin) {
+            // Get user's campaigns to filter
+            const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
+            const userCampIds = userCampaigns.map(c => c.campaignId.toString());
+            
+            // If the user has no campaigns, return empty report immediately
+            if (userCampIds.length === 0) {
+                return res.json([]);
             }
-            match.camp_id = campaignId;
+
+            // STRICT FILTERING: Only match campaigns owned by user
+            if (campaignId) {
+                if (!userCampIds.includes(campaignId.toString())) {
+                     return res.json([]); // Unauthorized access to campaign
+                }
+                match.camp_id = campaignId;
+            } else {
+                // Match ANY of the user's campaigns
+                match.camp_id = { $in: userCampIds };
+            }
         } else {
-            // Match ANY of the user's campaigns
-            match.camp_id = { $in: userCampIds };
+            // SUPERADMIN: No global data restriction.
+            if (campaignId) {
+                match.camp_id = campaignId;
+            }
+            // If no campaignId, we don't add camp_id to match, showing ALL campaigns.
         }
 
-        // Optional: Filter by specific publisher if Admin requests it
+        // Optional: Filter by specific publisher if Admin/SuperAdmin requests it
         if (publisherId) {
            match.publisher_id = publisherId;
         }

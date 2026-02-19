@@ -134,6 +134,12 @@ router.get('/users', auth, async (req, res) => {
     // 2. Or return sub-users if any.
     // For now, let's return [self] so the list isn't empty but shows 'Me'.
     const User = require('../models/User');
+    
+    if (req.user.role === 'superadmin') {
+        const users = await User.find({ role: { $ne: 'publisher' } }).sort({ createdAt: -1 });
+        return res.json(users);
+    }
+    
     const user = await User.findById(req.user.id);
     
     // If we want to support sub-users in future:

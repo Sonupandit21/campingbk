@@ -8,7 +8,13 @@ const auth = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
   try {
     const Publisher = require('../models/Publisher');
-    const publishers = await Publisher.find({ created_by: req.user.id }).sort({ createdAt: -1 });
+    let query = { created_by: req.user.id };
+    
+    if (req.user.role === 'superadmin') {
+        query = {}; // All publishers
+    }
+
+    const publishers = await Publisher.find(query).sort({ createdAt: -1 });
     
     // Format to include numeric id if needed or just return objects
     const formatted = publishers.map(p => ({

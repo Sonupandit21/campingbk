@@ -14,8 +14,19 @@ router.get('/', auth, async (req, res) => {
     const userId = req.user.id;
 
     const isPublisher = req.user.role === 'publisher';
+    const isSuperAdmin = req.user.role === 'superadmin';
 
-    if (isPublisher) {
+    if (isSuperAdmin) {
+        // SUPERADMIN STATS: Global across all users
+        try {
+            stats.offers = await Campaign.countDocuments({});
+            stats.responses = await Conversion.countDocuments({});
+            stats.users = await User.countDocuments({ role: { $ne: 'publisher' } }); // Count all admin/users
+        } catch (e) {
+            console.error('Superadmin stats error:', e);
+            stats.errors.push(`Superadmin Global: ${e.message}`);
+        }
+    } else if (isPublisher) {
        // PUBLISHER STATS
        // Offers: Count of campaigns they have access to? 
        // Technically they have access to ALL active campaigns if not private. 

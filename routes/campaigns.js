@@ -130,10 +130,24 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update campaign
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const campaignData = req.body;
+
+    const Campaign = require('../models/Campaign');
+    const mongoose = require('mongoose');
+    let campaign;
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    if (!isObjectId && !isNaN(id)) {
+      campaign = await Campaign.findOne({ campaignId: Number(id) });
+    } else if (isObjectId) {
+      campaign = await Campaign.findById(id);
+    }
+
+    if (campaign && req.user.role !== 'superadmin' && req.user.role !== 'admin' && campaign.created_by.toString() !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized to update this campaign' });
+    }
     
     // Check if sampling rules are being updated
     const isSamplingUpdate = campaignData.hasOwnProperty('sampling');
@@ -181,9 +195,24 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete campaign
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    const Campaign = require('../models/Campaign');
+    const mongoose = require('mongoose');
+    let campaign;
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    if (!isObjectId && !isNaN(id)) {
+      campaign = await Campaign.findOne({ campaignId: Number(id) });
+    } else if (isObjectId) {
+      campaign = await Campaign.findById(id);
+    }
+
+    if (campaign && req.user.role !== 'superadmin' && req.user.role !== 'admin' && campaign.created_by.toString() !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized to delete this campaign' });
+    }
+
     await deleteCampaign(id);
     res.json({ message: 'Campaign deleted successfully' });
   } catch (error) {

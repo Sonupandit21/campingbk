@@ -128,7 +128,7 @@ router.post('/:id/reprocess-sampling', auth, async (req, res) => {
         }
 
         // Check authorization
-        if (req.user.role !== 'admin' && campaign.created_by.toString() !== req.user.id) {
+        if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && campaign.created_by.toString() !== req.user.id) {
             return res.status(403).json({ error: 'Unauthorized' });
         }
 

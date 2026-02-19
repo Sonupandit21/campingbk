@@ -63,11 +63,25 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update publisher
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const publisher = await updatePublisher(id, req.body);
-    res.json(publisher);
+
+    const Publisher = require('../models/Publisher');
+    const mongoose = require('mongoose');
+    let publisher;
+    if (!mongoose.Types.ObjectId.isValid(id) && !isNaN(id)) {
+      publisher = await Publisher.findOne({ publisherId: Number(id) });
+    } else {
+      publisher = await Publisher.findById(id);
+    }
+
+    if (publisher && req.user.role !== 'superadmin' && req.user.role !== 'admin' && publisher.created_by.toString() !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized to update this publisher' });
+    }
+
+    const updatedPublisher = await updatePublisher(id, req.body);
+    res.json(updatedPublisher);
   } catch (error) {
     console.error('Update publisher error:', error);
     res.status(500).json({ error: 'Failed to update publisher' });
@@ -75,9 +89,23 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete publisher
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    const Publisher = require('../models/Publisher');
+    const mongoose = require('mongoose');
+    let publisher;
+    if (!mongoose.Types.ObjectId.isValid(id) && !isNaN(id)) {
+      publisher = await Publisher.findOne({ publisherId: Number(id) });
+    } else {
+      publisher = await Publisher.findById(id);
+    }
+
+    if (publisher && req.user.role !== 'superadmin' && req.user.role !== 'admin' && publisher.created_by.toString() !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized to delete this publisher' });
+    }
+
     await deletePublisher(id);
     res.json({ message: 'Publisher deleted successfully' });
   } catch (error) {

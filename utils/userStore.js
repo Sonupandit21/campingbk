@@ -40,7 +40,7 @@ async function createUser(userData) {
     mobile,
     photo,
     password, // Mongoose pre-save hook will hash this
-    role: 'user'
+    role: userData.role || 'user'
   });
 
   await user.save();

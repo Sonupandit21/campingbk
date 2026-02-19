@@ -137,7 +137,11 @@ router.get('/users', auth, async (req, res) => {
     
     if (req.user.role === 'superadmin') {
         const users = await User.find({ role: { $ne: 'publisher' } }).sort({ createdAt: -1 });
-        return res.json(users);
+        const formatted = users.map(u => ({
+            ...u.toObject(),
+            id: u._id.toString()
+        }));
+        return res.json(formatted);
     }
     
     const user = await User.findById(req.user.id);
@@ -285,8 +289,8 @@ router.post('/publisher/login', async (req, res) => {
 // Admin Impersonate Publisher
 router.post('/admin/impersonate-publisher', auth, async (req, res) => {
   try {
-    // Verify admin
-    if (req.user.role !== 'admin' && req.user.role !== 'user') { // 'user' seems to be the default admin/tenant role here
+    // Verify admin/superadmin
+    if (req.user.role !== 'admin' && req.user.role !== 'user' && req.user.role !== 'superadmin') {
        return res.status(403).json({ error: 'Access denied' });
     }
 

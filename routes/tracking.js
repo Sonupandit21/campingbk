@@ -77,12 +77,14 @@ const sendPostback = async (url, type) => {
 };
 
 // Start Sampling Logic
-const checkIsSampled = async (campaign, publisher, source, rawPublisherId) => {
+// Start Sampling Logic
+const checkIsSampled = async (campaign, publisher, source, rawPublisherId, goalName = '') => {
     if (!campaign || !campaign.sampling || campaign.sampling.length === 0) return false;
 
     // Normalize inputs
     const sourceStr = String(source || '');
     const rawPubIdStr = String(rawPublisherId || '');
+    const targetGoalName = String(goalName || '').toLowerCase().trim();
 
     // Get start of today for fixed counting
     const startOfDay = new Date();
@@ -134,28 +136,35 @@ const checkIsSampled = async (campaign, publisher, source, rawPublisherId) => {
 
         if (!subIdMatch) continue;
 
-        // 3. Apply Sampling Logic (Fixed vs Percentage)
-        const samplingType = rule.samplingType || 'percentage'; // Default to percentage for backward compatibility
+        // 3. Check Goal Name Match
+        const ruleGoalName = String(rule.goalName || 'Gross Conversions').toLowerCase().trim();
+        const isGlobalGoal = ruleGoalName === 'gross conversions' || ruleGoalName === '';
+        
+        if (!isGlobalGoal && ruleGoalName !== targetGoalName) {
+            console.log(`[Sampling] Goal Mismatch: Rule='${ruleGoalName}', Conversion='${targetGoalName}'`);
+            continue;
+        }
+
+        // 4. Apply Sampling Logic (Fixed vs Percentage)
+        const samplingType = String(rule.samplingType || 'percentage').toLowerCase();
         const threshold = parseFloat(rule.samplingValue) || 0;
 
         if (samplingType === 'fixed') {
              // Fixed: Sample (Deduct) specific NUMBER of conversions daily
-             // Count how many already sampled for this rule's criteria today
-             // Criteria: Campaign + Publisher (if specific) + Status='sampled'
              
              try {
                  const query = {
-                     camp_id: campaign.campaignId, // stored as string or number matching schema
-                     status: 'sampled',
+                     camp_id: campaign.campaignId, 
+                     originalStatus: 'sampled',
                      createdAt: { $gte: startOfDay }
                  };
                  
-                 // If rule is specific to a publisher, filter by it. 
-                 // If rule is global (no publisherId), it applies to all? 
-                 // (Current UI enforces Publisher selection, but good to be safe)
                  if (rule.publisherId) {
-                     // We use the raw ID from the conversion for consistency
                      query.publisher_id = rawPubIdStr; 
+                 }
+                 
+                 if (!isGlobalGoal) {
+                     query.goal_name = rule.goalName; 
                  }
 
                  const currentSampledCount = await Conversion.countDocuments(query);
@@ -170,7 +179,6 @@ const checkIsSampled = async (campaign, publisher, source, rawPublisherId) => {
                  }
              } catch (err) {
                  console.error('[Sampling] Error counting documents for fixed sampling:', err);
-                 // Fallback to no sampling on error to prevent revenue loss
                  return false;
              }
 
@@ -178,7 +186,7 @@ const checkIsSampled = async (campaign, publisher, source, rawPublisherId) => {
             // Percentage (Default)
             const randomVal = Math.random() * 100;
             if (randomVal < threshold) {
-                console.log(`[Sampling] HIT: Rule matched (PubRule: ${rule.publisherId}, Type: ${rule.subIdsType}, Val: ${threshold}%)`);
+                console.log(`[Sampling] HIT: Rule matched (PubRule: ${rule.publisherId}, Goal: ${rule.goalName}, Val: ${threshold}%)`);
                 return true; 
             } else {
                 console.log(`[Sampling] MISS: Rule matched but RNG passed (Val: ${randomVal.toFixed(2)} >= ${threshold})`);
@@ -304,78 +312,72 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
 // ==========================================
 const handleConversion = async (req, res) => {
     try {
-        const { click_id, payout, camp_id: queryCampId } = req.query;
+        const { click_id, payout, camp_id: queryCampId, goal_name, event } = req.query;
 
         // 1. Validation
         if (!click_id) {
             return res.status(400).json({ error: 'Missing click_id' });
         }
 
-        console.log(`[Conversion] Received for click_id: ${click_id}, payout: ${payout}, camp_id: ${queryCampId || 'N/A'}`);
-
-        // 2. Validate Click Exists in DB
+        // Fetch Click first to get camp_id for campaign lookup
         const click = await Click.findOne({ click_id });
         if (!click) {
             console.error(`[Conversion] Click not found for ID: ${click_id}`);
             return res.status(404).json({ error: 'Invalid click_id' });
         }
 
-        // 3. Prevent Duplicates
-        // Using findOne is simple. For high concurrency, checking existing might have race conditions 
-        // without a unique index, but good enough for now.
+        const { camp_id, publisher_id, source, gaid, idfa, app_name, p1, p2 } = click;
+
+        // Fetch Campaign to get defaultGoalName
+        let campaign = null;
+        try {
+             if (mongoose.Types.ObjectId.isValid(camp_id)) {
+                 campaign = await Campaign.findById(camp_id);
+             }
+             if (!campaign) {
+                 const campIdNum = Number(camp_id);
+                 if (!isNaN(campIdNum)) {
+                     campaign = await Campaign.findOne({ campaignId: campIdNum });
+                 }
+             }
+             if (!campaign) {
+                 campaign = await Campaign.findOne({ campaignId: camp_id });
+             }
+        } catch(e) { console.error('Error fetching campaign for goal resolution:', e); }
+
+        const finalGoalName = goal_name || event || (campaign ? campaign.defaultGoalName : '') || '';
+        console.log(`[Conversion] Received for click_id: ${click_id}, payout: ${payout}, goal: ${finalGoalName}`);
+
+        // 2. Prevent Duplicates
         const existingConv = await Conversion.findOne({ click_id });
         if (existingConv) {
             console.warn(`[Conversion] Duplicate conversion for click_id: ${click_id}`);
-            // Return 200 to indicate we processed it (idempotency), or 409 conflict.
-            // Advertisers often retry postbacks, so 200 is safer to stop retries.
             return res.status(200).json({ message: 'Conversion already recorded' });
         }
 
-        // 4. Resolve Details from Click
-        const { camp_id, publisher_id, source, gaid, idfa, app_name, p1, p2 } = click;
         const validPayout = parseFloat(payout) || 0;
 
-        // 5. Save Conversion
+        // 3. Save Conversion
         const newConversion = await Conversion.create({
             click_id,
             camp_id,
             publisher_id,
             payout: validPayout,
             source,
+            goal_name: finalGoalName,
             gaid,
             idfa,
             app_name,
             p1,
             p2,
-            status: 'approved', // Default
-            originalStatus: 'approved' // Preserve initial status
+            status: 'approved', 
+            originalStatus: 'approved' 
         });
 
-        // 5b. Fetch Campaign for Sampling Check
-        let campaign = null;
-        try {
-             // Robust lookup: Match campaignId (Number) OR _id (ObjectId) OR String ID
-             if (mongoose.Types.ObjectId.isValid(camp_id)) {
-                 campaign = await Campaign.findById(camp_id);
-             }
-             if (!campaign) {
-                 // Try numeric cast if possible, else string match
-                 const campIdNum = Number(camp_id);
-                 if (!isNaN(campIdNum)) {
-                     campaign = await Campaign.findOne({ campaignId: campIdNum });
-                 }
-             }
-             // Fallback: Try exact string match (in case stored as string)
-             if (!campaign) {
-                 campaign = await Campaign.findOne({ campaignId: camp_id });
-             }
-        } catch(e) { console.error('Error fetching campaign for sampling:', e); }
-
-        // 5c. Check Sampling
+        // 4. Check Sampling
         let isSampled = false;
-        let publisherObj = null; // Declare outside to be accessible for clicks cutoff
+        let publisherObj = null; 
         if (campaign) {
-            // Fetch Publisher for Robust Matching
             if (publisher_id) {
                 try {
                     const allPublishers = await getAllPublishers();
@@ -383,8 +385,7 @@ const handleConversion = async (req, res) => {
                 } catch(e) { console.error('Error fetching publisher for sampling:', e); }
             }
             
-            
-            isSampled = await checkIsSampled(campaign, publisherObj, source, publisher_id);
+            isSampled = await checkIsSampled(campaign, publisherObj, source, publisher_id, finalGoalName);
         }
 
         if (isSampled) {
@@ -392,33 +393,12 @@ const handleConversion = async (req, res) => {
              newConversion.status = 'sampled';
              newConversion.originalStatus = 'sampled'; // Preserve initial sampling decision
              await newConversion.save();
-        } else {
-            console.log('[Conversion] Marked as APPROVED');
-             // Already 'approved' by default (both status and originalStatus)
         }
 
-        // 5d. Check Clicks Cutoff
-        let isCutoff = false;
-        if (campaign && publisherObj) {
-            isCutoff = await checkClicksCutoff(campaign, publisherObj, source, publisher_id);
-        }
-
-        if (isCutoff) {
-            console.log('[Conversion] REJECTED: Clicks cutoff exceeded');
-            newConversion.status = 'rejected';
-            await newConversion.save();
-            
-            // Return early - do not fire postbacks
-            return res.status(200).json({ 
-                success: true, 
-                message: 'Conversion rejected: Clicks limit exceeded' 
-            });
-        }
-        
         console.log('[Conversion] Saved to DB');
 
+
         // 6. Fire Trackier S2S Postback (ALWAYS FIRE to track revenue)
-        // Background async fire
         fireTrackierPostback(click_id, validPayout).catch(err => console.error('[Trackier] Error firing postback:', err));
 
         // 7. Fire Legacy Postbacks (ONLY IF NOT SAMPLED)
@@ -430,6 +410,7 @@ const handleConversion = async (req, res) => {
                 camp_id,
                 publisher_id,
                 source,
+                goal_name: finalGoalName,
                 gaid,
                 idfa,
                 app_name,
@@ -448,7 +429,6 @@ const handleConversion = async (req, res) => {
             // Publisher Postback
             if (publisher_id) {
                 getAllPublishers().then(publishers => {
-                    // Loose matching for ID
                     const publisher = publishers.find(p => p.id == publisher_id || p.referenceId == publisher_id);
                     if (publisher && publisher.postbackUrl) {
                         const pubPostbackUrl = replaceMacros(publisher.postbackUrl, params);
@@ -456,8 +436,6 @@ const handleConversion = async (req, res) => {
                     }
                 });
             }
-        } else {
-            console.log('[Postback] Skipped Global/Publisher postbacks due to SAMPLING');
         }
 
         return res.status(200).json({ success: true, message: isSampled ? 'Conversion recorded (sampled)' : 'Conversion recorded successfully' });

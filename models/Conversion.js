@@ -27,6 +27,10 @@ const conversionSchema = new mongoose.Schema({
     type: String,
     enum: ['approved', 'pending', 'rejected', 'sampled'],
     default: 'approved' // Preserves initial sampling decision, never modified by reprocessing
+  },
+  goal_name: {
+    type: String,
+    index: true
   }
 }, {
   timestamps: true

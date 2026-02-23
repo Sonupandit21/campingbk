@@ -203,6 +203,7 @@ router.get('/', auth, async (req, res) => {
           camp_id: item._id.camp_id,
           publisher_id: item._id.publisher_id,
           source: item._id.source || '',
+          goal_name: item._id.goal_name || '',
           gross_clicks: 0,
           clicks: 0,
           unique_clicks: 0,
@@ -228,6 +229,7 @@ router.get('/', auth, async (req, res) => {
             camp_id: item._id.camp_id,
             publisher_id: item._id.publisher_id,
             source: item._id.source || '',
+            goal_name: item._id.goal_name || '',
             gross_clicks: 0,
             clicks: 0,
             unique_clicks: 0,
@@ -308,7 +310,7 @@ router.get('/', auth, async (req, res) => {
             ...row,
             clicks: nonSampledClicks, // Override clicks to exclude sampled clicks
             campaignName: camp.title || `Unknown (${row.camp_id})`,
-            goalName: camp.goalName || 'N/A',
+            goalName: row.goal_name || camp.goalName || 'N/A', // Prefer actual goal name from conversion
             publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
             cr: nonSampledClicks > 0 ? ((row.conversions / nonSampledClicks) * 100).toFixed(2) : 0,
             epc: nonSampledClicks > 0 ? (row.payout / nonSampledClicks).toFixed(4) : 0

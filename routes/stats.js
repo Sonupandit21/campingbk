@@ -118,7 +118,67 @@ router.get('/', auth, async (req, res) => {
         stats.errors.push(`Top Performers: ${e.message}`);
     }
 
-    res.json({ ...stats, topPerformers });
+    // --- WEEKLY STATS ---
+    let weeklyStats = [0, 0, 0, 0, 0, 0, 0];
+    try {
+        const now = new Date();
+        const dates = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            dates.push(d.toISOString().split('T')[0]);
+        }
+
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const convs = await Conversion.aggregate([
+            { $match: { createdAt: { $gte: sevenDaysAgo } } },
+            { $group: {
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                count: { $sum: 1 }
+            }}
+        ]);
+
+        weeklyStats = dates.map(date => {
+            const found = convs.find(c => c._id === date);
+            return found ? found.count : 0;
+        });
+    } catch (e) {
+        console.error('Weekly stats error:', e);
+        stats.errors.push(`Weekly Stats: ${e.message}`);
+    }
+
+    // --- TOP SALES ---
+    let topSales = { name: 'No Data', count: 0 };
+    try {
+        const topPub = await Conversion.aggregate([
+            { $group: { _id: "$publisher_id", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 1 }
+        ]);
+
+        if (topPub.length > 0) {
+            const pub_id = topPub[0]._id;
+            const publisher = await require('../models/Publisher').findOne({ publisherId: parseInt(pub_id) });
+            if (publisher) {
+                topSales = { name: publisher.fullName, count: topPub[0].count };
+            } else {
+                 const publisherStr = await require('../models/Publisher').findOne({ publisherId: pub_id });
+                 if (publisherStr) {
+                    topSales = { name: publisherStr.fullName, count: topPub[0].count };
+                 } else {
+                    topSales = { name: `Pub #${pub_id}`, count: topPub[0].count };
+                 }
+            }
+        }
+    } catch (e) {
+        console.error('Top Sales error:', e);
+        stats.errors.push(`Top Sales: ${e.message}`);
+    }
+
+    res.json({ ...stats, topPerformers, weeklyStats, topSales });
   } catch (error) {
     console.error('Stats fatal error:', error);
     res.status(500).json({ error: 'Failed to fetch stats', details: error.message });

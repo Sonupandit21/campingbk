@@ -84,7 +84,41 @@ router.get('/', auth, async (req, res) => {
         }
     }
 
-    res.json(stats);
+    // --- TOP PERFORMERS ---
+    let topPerformers = [];
+    try {
+        const topConversions = await Conversion.aggregate([
+            { $group: { _id: "$camp_id", responses: { $sum: 1 } } },
+            { $sort: { responses: -1 } },
+            { $limit: 5 }
+        ]);
+
+        for (const item of topConversions) {
+            const campaign = await Campaign.findOne({ campaignId: parseInt(item._id) }).populate('created_by', 'name');
+            if (campaign) {
+                topPerformers.push({
+                    offerName: campaign.title,
+                    createdBy: campaign.created_by?.name || 'Admin',
+                    responses: item.responses
+                });
+            } else {
+                // Fallback for string IDs or if numeric search fails
+                const campaignStr = await Campaign.findOne({ campaignId: item._id }).populate('created_by', 'name');
+                if (campaignStr) {
+                    topPerformers.push({
+                        offerName: campaignStr.title,
+                        createdBy: campaignStr.created_by?.name || 'Admin',
+                        responses: item.responses
+                    });
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Top Performers error:', e);
+        stats.errors.push(`Top Performers: ${e.message}`);
+    }
+
+    res.json({ ...stats, topPerformers });
   } catch (error) {
     console.error('Stats fatal error:', error);
     res.status(500).json({ error: 'Failed to fetch stats', details: error.message });

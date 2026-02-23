@@ -120,15 +120,24 @@ router.get('/', auth, async (req, res) => {
              publisher_id: "$publisher_id",
              source: "$source"
           },
-          conversions: { 
+          approved_conversions: { 
             $sum: { 
                 $cond: [{ $eq: [{ $trim: { input: "$status" } }, "approved"] }, 1, 0] 
             } 
           },
-          gross_conversions: { $sum: 1 },
+          pending_conversions: { 
+            $sum: { 
+                $cond: [{ $eq: [{ $trim: { input: "$status" } }, "pending"] }, 1, 0] 
+            } 
+          },
           sampled_conversions: { 
             $sum: { 
                 $cond: [{ $eq: [{ $trim: { input: "$status" } }, "sampled"] }, 1, 0] 
+            } 
+          },
+          rejected_conversions: { 
+            $sum: { 
+                $cond: [{ $in: [{ $trim: { input: "$status" } }, ["rejected", "cancelled"]] }, 1, 0] 
             } 
           },
           payout: { 
@@ -223,9 +232,17 @@ router.get('/', auth, async (req, res) => {
         });
       }
       const entry = reportMap.get(key);
-      entry.conversions += item.conversions;
-      entry.gross_conversions += item.gross_conversions;
+      entry.approved = (entry.approved || 0) + item.approved_conversions;
+      entry.pending = (entry.pending || 0) + item.pending_conversions;
       entry.sampled_conversions += item.sampled_conversions;
+      entry.cancelled = (entry.cancelled || 0) + item.rejected_conversions;
+      
+      // Conversions = Approved + Pending (matching user expectation for CR)
+      entry.conversions = entry.approved + entry.pending;
+      
+      // Gross = Approved + Pending + Sampled + Cancelled
+      entry.gross_conversions = entry.approved + entry.pending + entry.sampled_conversions + entry.cancelled;
+      
       entry.payout += item.payout;
     });
 
@@ -285,16 +302,23 @@ router.get('/', auth, async (req, res) => {
         const camp = campMap[row.camp_id] || {};
         
         // Use sampled_clicks from database (already set from sampledClicksResults)
-        // Calculate non-sampled clicks
+        // Calculate non-sampled clicks (valid clicks)
         const nonSampledClicks = row.gross_clicks - row.sampled_clicks;
+        
+        // Final math: Gross = Approved + Pending + Sampled + Cancelled
+        // Conversions = Approved + Pending
+        const totalConversions = (row.approved || 0) + (row.pending || 0);
         
         return {
             ...row,
-            clicks: nonSampledClicks, // Override clicks to exclude sampled clicks
+            conversions: totalConversions,
+            approved: row.approved || 0,
+            pending: row.pending || 0,
+            cancelled: row.cancelled || 0,
             campaignName: camp.title || `Unknown (${row.camp_id})`,
             goalName: row.goal_name || camp.goalName || 'N/A', // Prefer actual goal name from conversion
             publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
-            cr: nonSampledClicks > 0 ? ((row.conversions / nonSampledClicks) * 100).toFixed(2) : 0,
+            cr: nonSampledClicks > 0 ? ((totalConversions / nonSampledClicks) * 100).toFixed(2) : 0,
             epc: nonSampledClicks > 0 ? (row.payout / nonSampledClicks).toFixed(4) : 0
         };
     });

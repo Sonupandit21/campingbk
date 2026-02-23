@@ -84,10 +84,22 @@ router.get('/', auth, async (req, res) => {
         }
     }
 
+    // --- ROLE-BASED FILTERING FOR EXTENDED STATS ---
+    let conversionMatch = {};
+    if (isPublisher) {
+        conversionMatch = { publisher_id: userId.toString() };
+    } else if (!isSuperAdmin) {
+        // Admin: only show conversions for their own campaigns
+        const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
+        const campaignIds = userCampaigns.map(c => c.campaignId.toString());
+        conversionMatch = { camp_id: { $in: campaignIds } };
+    }
+
     // --- TOP PERFORMERS ---
     let topPerformers = [];
     try {
         const topConversions = await Conversion.aggregate([
+            { $match: conversionMatch },
             { $group: { _id: "$camp_id", responses: { $sum: 1 } } },
             { $sort: { responses: -1 } },
             { $limit: 5 }
@@ -102,7 +114,6 @@ router.get('/', auth, async (req, res) => {
                     responses: item.responses
                 });
             } else {
-                // Fallback for string IDs or if numeric search fails
                 const campaignStr = await Campaign.findOne({ campaignId: item._id }).populate('created_by', 'name');
                 if (campaignStr) {
                     topPerformers.push({
@@ -134,7 +145,7 @@ router.get('/', auth, async (req, res) => {
         sevenDaysAgo.setHours(0, 0, 0, 0);
 
         const convs = await Conversion.aggregate([
-            { $match: { createdAt: { $gte: sevenDaysAgo } } },
+            { $match: { ...conversionMatch, createdAt: { $gte: sevenDaysAgo } } },
             { $group: {
                 _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
                 count: { $sum: 1 }
@@ -154,6 +165,7 @@ router.get('/', auth, async (req, res) => {
     let topSales = { name: 'No Data', count: 0 };
     try {
         const topPub = await Conversion.aggregate([
+            { $match: conversionMatch },
             { $group: { _id: "$publisher_id", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
             { $limit: 1 }

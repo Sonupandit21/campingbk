@@ -145,7 +145,7 @@ router.put('/:id', auth, async (req, res) => {
       campaign = await Campaign.findById(id);
     }
 
-    if (campaign && req.user.role !== 'superadmin' && req.user.role !== 'admin' && campaign.created_by.toString() !== req.user.id) {
+    if (campaign && req.user.role !== 'superadmin' && req.user.role !== 'admin' && campaign.created_by && campaign.created_by.toString() !== req.user.id) {
         return res.status(403).json({ error: 'Unauthorized to update this campaign' });
     }
     
@@ -198,26 +198,41 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[Delete Campaign] Request to delete campaign ID: ${id} by user: ${req.user?.id}, role: ${req.user?.role}`);
 
     const Campaign = require('../models/Campaign');
     const mongoose = require('mongoose');
     let campaign;
-    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    const isObjectId = mongoose.Types.ObjectId.isValid(id) && isNaN(id);
     if (!isObjectId && !isNaN(id)) {
       campaign = await Campaign.findOne({ campaignId: Number(id) });
     } else if (isObjectId) {
       campaign = await Campaign.findById(id);
     }
 
-    if (campaign && req.user.role !== 'superadmin' && req.user.role !== 'admin' && campaign.created_by.toString() !== req.user.id) {
+    console.log(`[Delete Campaign] Campaign found: ${campaign ? 'Yes (ID: ' + campaign._id + ')' : 'No'}`);
+
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    // Authorization check: only block if NOT superadmin/admin AND campaign has an owner AND it's a different user
+    if (
+      req.user.role !== 'superadmin' &&
+      req.user.role !== 'admin' &&
+      campaign.created_by &&
+      campaign.created_by.toString() !== req.user.id
+    ) {
+        console.log(`[Delete Campaign] Unauthorized - campaign.created_by=${campaign.created_by}, user=${req.user.id}`);
         return res.status(403).json({ error: 'Unauthorized to delete this campaign' });
     }
 
     await deleteCampaign(id);
+    console.log(`[Delete Campaign] Campaign ${id} deleted successfully`);
     res.json({ message: 'Campaign deleted successfully' });
   } catch (error) {
-    console.error('Delete campaign error:', error);
-    res.status(500).json({ error: 'Failed to delete campaign' });
+    console.error('[Delete Campaign] Error:', error);
+    res.status(500).json({ error: 'Failed to delete campaign', details: error.message });
   }
 });
 

@@ -57,7 +57,8 @@ router.get('/', auth, async (req, res) => {
           const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
           // For string IDs compatibility (if stored as "1" vs 1), let's map both just in case or use what we have.
           // Assuming Conversion stores camp_id as String.
-          const campaignIds = userCampaigns.map(c => c.campaignId.toString());
+          // Null-check: skip legacy campaigns missing a campaignId
+          const campaignIds = userCampaigns.filter(c => c.campaignId != null).map(c => c.campaignId.toString());
           
           if (campaignIds.length > 0) {
             stats.responses = await Conversion.countDocuments({ camp_id: { $in: campaignIds } });
@@ -91,7 +92,8 @@ router.get('/', auth, async (req, res) => {
     } else if (!isSuperAdmin) {
         // Admin: only show conversions for their own campaigns
         const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
-        const campaignIds = userCampaigns.map(c => c.campaignId.toString());
+        // Null-check: skip legacy campaigns missing a campaignId
+        const campaignIds = userCampaigns.filter(c => c.campaignId != null).map(c => c.campaignId.toString());
         conversionMatch = { camp_id: { $in: campaignIds } };
     }
 

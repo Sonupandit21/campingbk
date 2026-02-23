@@ -37,7 +37,8 @@ router.get('/', auth, async (req, res) => {
         if (!isSuperAdmin) {
             // Get user's campaigns to filter
             const userCampaigns = await Campaign.find({ created_by: userId }).select('campaignId');
-            const userCampIds = userCampaigns.map(c => c.campaignId.toString());
+            // Null-check: skip legacy campaigns missing a campaignId
+            const userCampIds = userCampaigns.filter(c => c.campaignId != null).map(c => c.campaignId.toString());
             
             // If the user has no campaigns, return empty report immediately
             if (userCampIds.length === 0) {

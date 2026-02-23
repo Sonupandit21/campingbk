@@ -105,9 +105,11 @@ router.get('/', auth, async (req, res) => {
             { $limit: 5 }
         ]);
 
+        const performerIds = [];
         for (const item of topConversions) {
             const campaign = await Campaign.findOne({ campaignId: parseInt(item._id) }).populate('created_by', 'name');
             if (campaign) {
+                performerIds.push(campaign.campaignId);
                 topPerformers.push({
                     offerName: campaign.title,
                     createdBy: campaign.created_by?.name || 'Admin',
@@ -116,12 +118,32 @@ router.get('/', auth, async (req, res) => {
             } else {
                 const campaignStr = await Campaign.findOne({ campaignId: item._id }).populate('created_by', 'name');
                 if (campaignStr) {
+                    performerIds.push(campaignStr.campaignId);
                     topPerformers.push({
                         offerName: campaignStr.title,
                         createdBy: campaignStr.created_by?.name || 'Admin',
                         responses: item.responses
                     });
                 }
+            }
+        }
+
+        // --- FILL WITH OTHER CAMPAIGNS IF LESS THAN 5 ---
+        if (topPerformers.length < 5) {
+            let fillQuery = {};
+            if (!isSuperAdmin) {
+                fillQuery = { created_by: userId, campaignId: { $nin: performerIds } };
+            } else {
+                fillQuery = { campaignId: { $nin: performerIds } };
+            }
+
+            const otherCampaigns = await Campaign.find(fillQuery).limit(5 - topPerformers.length).populate('created_by', 'name');
+            for (const camp of otherCampaigns) {
+                topPerformers.push({
+                    offerName: camp.title,
+                    createdBy: camp.created_by?.name || 'Admin',
+                    responses: 0
+                });
             }
         }
     } catch (e) {

@@ -20,12 +20,12 @@ const conversionSchema = new mongoose.Schema({
   p2: String,
   status: {
     type: String,
-    enum: ['approved', 'pending', 'rejected', 'sampled', 'cancelled'],
+    enum: ['approved', 'pending', 'rejected', 'sampled'],
     default: 'approved' // Auto-approve postbacks for now
   },
   originalStatus: {
     type: String,
-    enum: ['approved', 'pending', 'rejected', 'sampled', 'cancelled'],
+    enum: ['approved', 'pending', 'rejected', 'sampled'],
     default: 'approved' // Preserves initial sampling decision, never modified by reprocessing
   },
   goal_name: {

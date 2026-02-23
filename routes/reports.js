@@ -122,18 +122,18 @@ router.get('/', auth, async (req, res) => {
           },
           conversions: { 
             $sum: { 
-                $cond: [{ $eq: ["$status", "approved"] }, 1, 0] 
+                $cond: [{ $eq: [{ $trim: { input: "$status" } }, "approved"] }, 1, 0] 
             } 
           },
           gross_conversions: { $sum: 1 },
           sampled_conversions: { 
             $sum: { 
-                $cond: [{ $eq: ["$status", "sampled"] }, 1, 0] 
+                $cond: [{ $eq: [{ $trim: { input: "$status" } }, "sampled"] }, 1, 0] 
             } 
           },
           payout: { 
             $sum: {
-                $cond: [{ $eq: ["$status", "approved"] }, "$payout", 0]
+                $cond: [{ $eq: [{ $trim: { input: "$status" } }, "approved"] }, "$payout", 0]
             }
           }
         }

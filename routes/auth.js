@@ -158,10 +158,27 @@ router.get('/users', auth, async (req, res) => {
 });
 
 // Delete user
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', auth, async (req, res) => {
   try {
-    const { deleteUser } = require('../utils/userStore');
     const { id } = req.params;
+    const mongoose = require('mongoose');
+
+    // 1. RBAC: Only Superadmin and Admin can delete
+    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+    }
+
+    // 2. Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: 'Invalid User ID format' });
+    }
+
+    // 3. Prevent self-deletion
+    if (req.user.id === id) {
+        return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    const { deleteUser } = require('../utils/userStore');
     await deleteUser(id);
     res.json({ message: 'User deleted successfully' });
   } catch (error) {

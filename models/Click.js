@@ -12,10 +12,9 @@ const clickSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  timestamp: {
+   timestamp: {
     type: Date,
-    default: Date.now,
-    index: { expires: '7d' } // Automatically delete clicks after 7 days
+    default: Date.now
   }
 });
 

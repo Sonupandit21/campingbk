@@ -12,7 +12,7 @@ const clickSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  timestamp: {
+   timestamp: {
     type: Date,
     default: Date.now
   }

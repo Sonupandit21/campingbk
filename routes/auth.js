@@ -294,7 +294,7 @@ router.post('/publisher/login', async (req, res) => {
       { expiresIn: '24h' },
       (err, token) => {
         if (err) throw err;
-        res.json({ token, publisher: { id: publisher.publisherId, name: publisher.fullName, email: publisher.email, role: 'publisher' } });
+        res.json({ token, publisher: { id: publisher.publisherId, fullName: publisher.fullName, email: publisher.email, role: 'publisher' } });
       }
     );
   } catch (err) {
@@ -355,7 +355,7 @@ router.post('/admin/impersonate-publisher', auth, async (req, res) => {
         token, 
         publisher: { 
             id: publisher.publisherId, 
-            name: publisher.fullName, 
+            fullName: publisher.fullName, 
             email: publisher.email, 
             role: 'publisher' 
         } 

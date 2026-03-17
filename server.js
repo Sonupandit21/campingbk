@@ -109,8 +109,8 @@ const path = require('path');
 app.use(express.static(path.join(__dirname, '../frontend/client/build')));
 
 // Handle React routing, return all requests to React app
-app.get('/', (req, res) => {
-  res.json({ status: 'API is running', version: '1.0.0' });
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/client/build', 'index.html'));
 });
 
 // Error handling middleware

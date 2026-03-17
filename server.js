@@ -25,8 +25,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     // allow Postman, curl, server-to-server
     if (!origin) return callback(null, true);
-
-    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'];
+    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173', 'http://16.170.243.234:5002'];
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -47,6 +46,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // 👈 VERY IMPORTANT
 
+// Trust proxy is REQUIRED when hosting on Render or behind any load balancer
+// Otherwise all requests will have the proxy's IP address, breaking Unique Clicks
+app.set('trust proxy', true);
+
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -66,6 +69,7 @@ app.use('/tracking', trackingRoutes); // Alias for legacy/external links
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/utils', require('./routes/utils'));
 
 // Debug/Health Route
 app.get('/api/health', async (req, res) => {
@@ -105,8 +109,8 @@ const path = require('path');
 app.use(express.static(path.join(__dirname, '../frontend/client/build')));
 
 // Handle React routing, return all requests to React app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/client/build', 'index.html'));
+app.get('/', (req, res) => {
+  res.json({ status: 'API is running', version: '1.0.0' });
 });
 
 // Error handling middleware

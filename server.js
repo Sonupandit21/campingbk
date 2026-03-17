@@ -25,7 +25,8 @@ const corsOptions = {
   origin: function (origin, callback) {
     // allow Postman, curl, server-to-server
     if (!origin) return callback(null, true);
-    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173', 'http://16.170.243.234:5002'];
+
+    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'];
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {

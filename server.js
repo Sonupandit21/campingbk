@@ -70,7 +70,7 @@ app.use('/tracking', trackingRoutes); // Alias for legacy/external links
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/reports', require('./routes/reports'));
-// app.use('/api/utils', require('./routes/utils'));
+app.use('/api/utils', require('./routes/utils'));
 
 // Debug/Health Route
 app.get('/api/health', async (req, res) => {

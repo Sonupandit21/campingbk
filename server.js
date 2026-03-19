@@ -26,7 +26,7 @@ const corsOptions = {
     // allow Postman, curl, server-to-server
     if (!origin) return callback(null, true);
 
-    const allowedOrigins = [process.env.FRONTEND_URL, 'trackierpanel.com', 'http://localhost:3000', 'http://localhost:5173'];
+    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'];
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {

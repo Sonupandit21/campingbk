@@ -110,9 +110,7 @@ app.get('/api/health', async (req, res) => {
 // -----------------------------
 // Serve Frontend Build
 // -----------------------------
-// For React Vite -> dist
-// For CRA -> build
-const frontendBuildPath = path.join(__dirname, 'public');
+const frontendBuildPath = path.join(__dirname, 'frontend/client/build'); // ✅ FIXED
 
 app.use(express.static(frontendBuildPath));
 
@@ -148,7 +146,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5002; // ✅ FIXED to match your running port
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

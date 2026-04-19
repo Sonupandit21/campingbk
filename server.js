@@ -1,37 +1,41 @@
-// Force redeploy - Clicks cutoff fix applied
-const express = require('express'); // Force restart // Force deploy
+const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
-const mongoose = require('mongoose');
-
+// -----------------------------
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000 // Fail after 5 seconds instead of 10
-})
+// -----------------------------
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+  })
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
-// Middleware
-// app.use(cors({
-//     origin: true, // Reflects the request origin
-//     credentials: true,
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
-// }));
+// -----------------------------
+// CORS Configuration
+// -----------------------------
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://trackierpanel.com',
+  'https://www.trackierpanel.com',
+  'http://localhost:3000',
+  'http://localhost:5173',
+].filter(Boolean);
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // allow Postman, curl, server-to-server
     if (!origin) return callback(null, true);
 
-    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'];
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+      return callback(null, true);
     }
+
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -40,49 +44,48 @@ const corsOptions = {
     'Authorization',
     'X-Requested-With',
     'Accept',
-    'Origin'
-  ]
+    'Origin',
+  ],
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // 👈 VERY IMPORTANT
+app.options('*', cors(corsOptions));
 
-// Trust proxy is REQUIRED when hosting on Render or behind any load balancer
-// Otherwise all requests will have the proxy's IP address, breaking Unique Clicks
 app.set('trust proxy', true);
-
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Routes
-const authRoutes = require('./routes/auth');
-const publisherRoutes = require('./routes/publishers');
-const postbackRoutes = require('./routes/postback');
-const trackingRoutes = require('./routes/tracking');
-const campaignRoutes = require('./routes/campaigns');
-
-app.use('/api/auth', authRoutes);
-app.use('/api/publishers', publisherRoutes);
-app.use('/api/postback', postbackRoutes);
-app.use('/api/track', trackingRoutes);
-app.use('/tracking', trackingRoutes); // Alias for legacy/external links
-app.use('/api/campaigns', campaignRoutes);
+// -----------------------------
+// API Routes
+// -----------------------------
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/publishers', require('./routes/publishers'));
+app.use('/api/postback', require('./routes/postback'));
+app.use('/api/track', require('./routes/tracking'));
+app.use('/tracking', require('./routes/tracking'));
+app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/utils', require('./routes/utils'));
 
-// Debug/Health Route
+// -----------------------------
+// Health Check Route
+// -----------------------------
 app.get('/api/health', async (req, res) => {
-  const mongoose = require('mongoose');
   const dbState = mongoose.connection.readyState;
-  const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
-  
+  const states = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+  };
+
   let dbError = null;
+
   try {
-    // Try a simple operation
     if (dbState === 1) {
-       await mongoose.connection.db.admin().ping();
+      await mongoose.connection.db.admin().ping();
     }
   } catch (e) {
     dbError = e.message;
@@ -95,32 +98,57 @@ app.get('/api/health', async (req, res) => {
       state: states[dbState] || 'unknown',
       code: dbState,
       error: dbError,
-      host: mongoose.connection.host
+      host: mongoose.connection.host || null,
     },
     env: {
       hasMongoUri: !!process.env.MONGODB_URI,
-      nodeEnv: process.env.NODE_ENV
-    }
+      nodeEnv: process.env.NODE_ENV,
+    },
   });
 });
 
-// Base route
+// -----------------------------
+// Serve Frontend Build
+// -----------------------------
+// For React Vite -> dist
+// For CRA -> build
+const frontendBuildPath = path.join(__dirname, 'public');
 
+app.use(express.static(frontendBuildPath));
+
+// root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendBuildPath, 'index.html'));
 });
 
-// Error handling middleware
+// SPA fallback route
+app.get(/^\/(?!api|tracking).*/, (req, res) => {
+  res.sendFile(path.join(frontendBuildPath, 'index.html'));
+});
+
+// -----------------------------
+// API 404
+// -----------------------------
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'API route not found',
+    path: req.originalUrl,
+  });
+});
+
+// -----------------------------
+// Error Handling Middleware
+// -----------------------------
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!', details: err.message });
+  console.error('❌ Error:', err.stack || err.message);
+
+  res.status(err.status || 500).json({
+    error: 'Something went wrong!',
+    details: err.message,
+  });
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
-
-
-
-
-
-// Force restart

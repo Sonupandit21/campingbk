@@ -110,7 +110,7 @@ app.get('/api/health', async (req, res) => {
 // -----------------------------
 // Serve Frontend Build
 // -----------------------------
-const frontendBuildPath = path.join(__dirname, 'frontend/client/build'); // ✅ FIXED
+const frontendBuildPath = path.join(__dirname, '../frontend/client/build');
 
 app.use(express.static(frontendBuildPath));
 

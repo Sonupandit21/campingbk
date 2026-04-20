@@ -14,7 +14,7 @@ const Reports = () => {
     const [loading, setLoading] = useState(false);
     const [campaigns, setCampaigns] = useState([]);
     const [publishers, setPublishers] = useState([]);
-    const [totals, setTotals] = useState({ gross_clicks: 0, clicks: 0, sampled_clicks: 0, conversions: 0, gross_conversions: 0, sampled_conversions: 0, payout: 0 });
+    const [totals, setTotals] = useState({ gross_clicks: 0, clicks: 0, unique_clicks: 0, sampled_clicks: 0, conversions: 0, gross_conversions: 0, sampled_conversions: 0, payout: 0 });
     
     // New Feature States
     const [searchTerm, setSearchTerm] = useState('');
@@ -29,9 +29,14 @@ const Reports = () => {
         source: true,
         gross_clicks: true,
         clicks: true,
+        unique_clicks: true,
+        sampled_clicks: true,
+        gross_conversions: true,
         sampled_conversions: true,
         conversions: true,
-        cr: true
+        cr: true,
+        epc: true,
+        payout: true
     });
     const [showColumnOptions, setShowColumnOptions] = useState(false);
     const tableContainerRef = useRef(null);
@@ -85,12 +90,13 @@ const Reports = () => {
                 const newTotals = data.reduce((acc, row) => ({
                     gross_clicks: acc.gross_clicks + (row.gross_clicks || 0),
                     clicks: acc.clicks + (row.clicks || 0),
+                    unique_clicks: acc.unique_clicks + (row.unique_clicks || 0),
                     sampled_clicks: acc.sampled_clicks + (row.sampled_clicks || 0),
                     conversions: acc.conversions + (row.conversions || 0),
                     gross_conversions: acc.gross_conversions + (row.gross_conversions || 0),
                     sampled_conversions: acc.sampled_conversions + (row.sampled_conversions || 0),
                     payout: acc.payout + (row.payout || 0)
-                }), { gross_clicks: 0, clicks: 0, sampled_clicks: 0, conversions: 0, gross_conversions: 0, sampled_conversions: 0, payout: 0 });
+                }), { gross_clicks: 0, clicks: 0, unique_clicks: 0, sampled_clicks: 0, conversions: 0, gross_conversions: 0, sampled_conversions: 0, payout: 0 });
                 setTotals(newTotals);
             } else {
                 console.error('Failed to fetch reports');
@@ -164,6 +170,7 @@ const Reports = () => {
                 const entry = aggregatedMap.get(key);
                 entry.gross_clicks = (entry.gross_clicks || 0) + (row.gross_clicks || 0);
                 entry.clicks = (entry.clicks || 0) + (row.clicks || 0);
+                entry.unique_clicks = (entry.unique_clicks || 0) + (row.unique_clicks || 0);
                 entry.sampled_clicks = (entry.sampled_clicks || 0) + (row.sampled_clicks || 0);
                 entry.conversions = (entry.conversions || 0) + (row.conversions || 0);
                 entry.gross_conversions = (entry.gross_conversions || 0) + (row.gross_conversions || 0);
@@ -174,7 +181,8 @@ const Reports = () => {
             // Convert map to array and recalculate ratios
             data = Array.from(aggregatedMap.values()).map(row => ({
                 ...row,
-                cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0
+                cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0,
+                epc: row.clicks > 0 ? (row.payout / row.clicks).toFixed(4) : 0
             }));
         }
 
@@ -195,7 +203,7 @@ const Reports = () => {
                 let bVal = b[sortConfig.key];
                 
                 // Handle numeric strings like "12.50" or currency "$10.00"
-                if (['cr', 'payout', 'gross_clicks', 'clicks', 'sampled_clicks', 'conversions', 'gross_conversions', 'sampled_conversions'].includes(sortConfig.key)) {
+                if (['cr', 'epc', 'payout', 'gross_clicks', 'clicks', 'unique_clicks', 'sampled_clicks', 'conversions', 'gross_conversions', 'sampled_conversions'].includes(sortConfig.key)) {
                     aVal = parseFloat(aVal) || 0;
                     bVal = parseFloat(bVal) || 0;
                 }
@@ -358,6 +366,10 @@ const Reports = () => {
                     <h3>{totals.clicks}</h3>
                  </div>
                  <div className="summary-card">
+                    <h4>Unique Clicks</h4>
+                    <h3>{totals.unique_clicks}</h3>
+                 </div>
+                 <div className="summary-card">
                     <h4>Sampled Clicks</h4>
                     <h3>{totals.sampled_clicks}</h3>
                  </div>
@@ -372,6 +384,10 @@ const Reports = () => {
                  <div className="summary-card">
                     <h4>Sampled Conversions</h4>
                     <h3>{totals.sampled_conversions}</h3>
+                 </div>
+                 <div className="summary-card">
+                    <h4>Total Revenue</h4>
+                    <h3>${totals.payout.toFixed(2)}</h3>
                  </div>
             </div>
 
@@ -388,8 +404,14 @@ const Reports = () => {
                             {visibleColumns.source && <th onClick={() => handleSort('source')} style={{cursor: 'pointer'}}>Source {sortConfig.key==='source' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.gross_clicks && <th onClick={() => handleSort('gross_clicks')} style={{cursor: 'pointer'}}>Gross Clicks {sortConfig.key==='gross_clicks' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.clicks && <th onClick={() => handleSort('clicks')} style={{cursor: 'pointer'}}>Clicks {sortConfig.key==='clicks' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.unique_clicks && <th onClick={() => handleSort('unique_clicks')} style={{cursor: 'pointer'}}>Unique {sortConfig.key==='unique_clicks' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.sampled_clicks && <th onClick={() => handleSort('sampled_clicks')} style={{cursor: 'pointer'}}>Sampled Clicks {sortConfig.key==='sampled_clicks' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.gross_conversions && <th onClick={() => handleSort('gross_conversions')} style={{cursor: 'pointer'}}>Gross {sortConfig.key==='gross_conversions' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.sampled_conversions && <th onClick={() => handleSort('sampled_conversions')} style={{cursor: 'pointer'}}>Sampled {sortConfig.key==='sampled_conversions' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.conversions && <th onClick={() => handleSort('conversions')} style={{cursor: 'pointer'}}>Conversions {sortConfig.key==='conversions' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.cr && <th onClick={() => handleSort('cr')} style={{cursor: 'pointer'}}>CR % {sortConfig.key==='cr' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.epc && <th onClick={() => handleSort('epc')} style={{cursor: 'pointer'}}>EPC {sortConfig.key==='epc' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.payout && <th onClick={() => handleSort('payout')} style={{cursor: 'pointer'}}>Payout {sortConfig.key==='payout' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -409,8 +431,14 @@ const Reports = () => {
                                     {visibleColumns.source && <td style={{ wordBreak: 'break-all' }}>{row.source}</td>}
                                     {visibleColumns.gross_clicks && <td>{row.gross_clicks || 0}</td>}
                                     {visibleColumns.clicks && <td>{row.clicks}</td>}
+                                    {visibleColumns.unique_clicks && <td>{row.unique_clicks || 0}</td>}
+                                    {visibleColumns.sampled_clicks && <td>{row.sampled_clicks || 0}</td>}
+                                    {visibleColumns.gross_conversions && <td>{(row.gross_conversions || 0).toLocaleString()}</td>}
+                                    {visibleColumns.sampled_conversions && <td>{(row.sampled_conversions || 0).toLocaleString()}</td>}
                                     {visibleColumns.conversions && <td>{row.conversions}</td>}
                                     {visibleColumns.cr && <td>{row.cr}%</td>}
+                                    {visibleColumns.epc && <td>${row.epc}</td>}
+                                    {visibleColumns.payout && <td>${row.payout.toFixed(2)}</td>}
                                 </tr>
                             ))
                         )}
@@ -427,8 +455,14 @@ const Reports = () => {
                                 {visibleColumns.source && <td>-</td>}
                                 {visibleColumns.gross_clicks && <td>{totals.gross_clicks.toLocaleString()}</td>}
                                 {visibleColumns.clicks && <td>{totals.clicks.toLocaleString()}</td>}
+                                {visibleColumns.unique_clicks && <td>{totals.unique_clicks.toLocaleString()}</td>}
+                                {visibleColumns.sampled_clicks && <td>{totals.sampled_clicks.toLocaleString()}</td>}
+                                {visibleColumns.gross_conversions && <td>{totals.gross_conversions.toLocaleString()}</td>}
+                                {visibleColumns.sampled_conversions && <td>{totals.sampled_conversions.toLocaleString()}</td>}
                                 {visibleColumns.conversions && <td>{totals.conversions.toLocaleString()}</td>}
                                 {visibleColumns.cr && <td>{(totals.clicks > 0 ? (totals.conversions / totals.clicks * 100).toFixed(2) : 0)}%</td>}
+                                {visibleColumns.epc && <td>${(totals.clicks > 0 ? totals.payout / totals.clicks : 0).toFixed(4)}</td>}
+                                {visibleColumns.payout && <td>${totals.payout.toFixed(2)}</td>}
                             </tr>
                         </tfoot>
                     )}

@@ -37,8 +37,7 @@ const PublisherDashboard = () => {
   
   const [stats, setStats] = useState({
       clicks: 0,
-      conversions: 0,
-      payout: 0
+      conversions: 0
   });
 
   // Reporting States
@@ -50,12 +49,10 @@ const PublisherDashboard = () => {
     campaignName: true,
     goalName: true,
     source: true,
-    unique_clicks: true,
+    source: true,
     clicks: true,
     conversions: true,
-    cr: true,
-    epc: true,
-    payout: true
+    cr: true
   });
 
   const toggleSidebar = () => {
@@ -108,12 +105,10 @@ const PublisherDashboard = () => {
                     // Calculate totals
                     const totalClicks = data.reduce((acc, curr) => acc + (curr.clicks || 0), 0);
                     const totalConversions = data.reduce((acc, curr) => acc + (curr.conversions || 0), 0);
-                    const totalPayout = data.reduce((acc, curr) => acc + (curr.payout || 0), 0);
                     
                     setStats({ 
                         clicks: totalClicks,
-                        conversions: totalConversions,
-                        payout: totalPayout
+                        conversions: totalConversions
                     });
                 } else {
                     console.error('Failed to fetch publisher report');
@@ -163,21 +158,16 @@ const PublisherDashboard = () => {
                         date: visibleColumns.date ? row.date : 'All Dates',
                         source: visibleColumns.source ? row.source : '',
                         clicks: 0,
-                        unique_clicks: 0,
-                        conversions: 0,
-                        payout: 0
+                        conversions: 0
                     });
                 }
                 const entry = aggMap.get(key);
                 entry.clicks += (row.clicks || 0);
-                entry.unique_clicks += (row.unique_clicks || 0);
                 entry.conversions += (row.conversions || 0);
-                entry.payout += (row.payout || 0);
             });
             data = Array.from(aggMap.values()).map(row => ({
                 ...row,
-                cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0,
-                epc: row.clicks > 0 ? (row.payout / row.clicks).toFixed(4) : 0
+                cr: row.clicks > 0 ? ((row.conversions / row.clicks) * 100).toFixed(2) : 0
             }));
         }
 
@@ -194,7 +184,7 @@ const PublisherDashboard = () => {
             data.sort((a, b) => {
                 let av = a[sortConfig.key];
                 let bv = b[sortConfig.key];
-                if (['clicks', 'unique_clicks', 'conversions', 'cr', 'epc', 'payout'].includes(sortConfig.key)) {
+                if (['clicks', 'conversions', 'cr'].includes(sortConfig.key)) {
                     av = parseFloat(av) || 0;
                     bv = parseFloat(bv) || 0;
                 }
@@ -349,12 +339,9 @@ const PublisherDashboard = () => {
                                 {visibleColumns.campaignName && <th onClick={() => handleSort('campaignName')} style={{cursor:'pointer'}}>Campaign {sortConfig.key==='campaignName'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.goalName && <th onClick={() => handleSort('goalName')} style={{cursor:'pointer'}}>Goal Name {sortConfig.key==='goalName'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.source && <th onClick={() => handleSort('source')} style={{cursor:'pointer'}}>Source {sortConfig.key==='source'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.unique_clicks && <th onClick={() => handleSort('unique_clicks')} style={{cursor:'pointer'}}>Unique {sortConfig.key==='unique_clicks'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.clicks && <th onClick={() => handleSort('clicks')} style={{cursor:'pointer'}}>Clicks {sortConfig.key==='clicks'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.conversions && <th onClick={() => handleSort('conversions')} style={{cursor:'pointer'}}>Approved {sortConfig.key==='conversions'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.cr && <th onClick={() => handleSort('cr')} style={{cursor:'pointer'}}>CR% {sortConfig.key==='cr'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.epc && <th onClick={() => handleSort('epc')} style={{cursor:'pointer'}}>EPC {sortConfig.key==='epc'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.payout && <th onClick={() => handleSort('payout')} style={{cursor:'pointer'}}>Revenue {sortConfig.key==='payout'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -367,12 +354,9 @@ const PublisherDashboard = () => {
                                         {visibleColumns.campaignName && <td>{row.campaignName}</td>}
                                         {visibleColumns.goalName && <td>{row.goalName || 'N/A'}</td>}
                                         {visibleColumns.source && <td style={{wordBreak:'break-all'}}>{row.source || '-'}</td>}
-                                        {visibleColumns.unique_clicks && <td>{row.unique_clicks}</td>}
                                         {visibleColumns.clicks && <td>{row.clicks}</td>}
                                         {visibleColumns.conversions && <td>{row.conversions}</td>}
                                         {visibleColumns.cr && <td>{row.cr}%</td>}
-                                        {visibleColumns.epc && <td>${row.epc}</td>}
-                                        {visibleColumns.payout && <td>${row.payout.toFixed(2)}</td>}
                                     </tr>
                                 ))
                             ) : (
@@ -390,12 +374,9 @@ const PublisherDashboard = () => {
                                     {visibleColumns.campaignName && <td>-</td>}
                                     {visibleColumns.goalName && <td>-</td>}
                                     {visibleColumns.source && <td>-</td>}
-                                    {visibleColumns.unique_clicks && <td>{processedData.reduce((a,c)=>a+(c.unique_clicks||0), 0)}</td>}
                                     {visibleColumns.clicks && <td>{processedData.reduce((a,c)=>a+(c.clicks||0), 0)}</td>}
                                     {visibleColumns.conversions && <td>{processedData.reduce((a,c)=>a+(c.conversions||0), 0)}</td>}
                                     {visibleColumns.cr && <td>{(processedData.reduce((a,c)=>a+(c.conversions||0),0)/processedData.reduce((a,c)=>a+(c.clicks||1), 1)*100).toFixed(2)}%</td>}
-                                    {visibleColumns.epc && <td>${(processedData.reduce((a,c)=>a+(c.payout||0),0)/processedData.reduce((a,c)=>a+(c.clicks||1),1)).toFixed(4)}</td>}
-                                    {visibleColumns.payout && <td>${processedData.reduce((a,c)=>a+(c.payout||0),0).toFixed(2)}</td>}
                                 </tr>
                             </tfoot>
                         )}
@@ -427,12 +408,6 @@ const PublisherDashboard = () => {
                   <div className="stat-info">
                     <h4>Conversions</h4>
                     <h2>{stats.conversions}</h2>
-                  </div>
-                </div>
-                 <div className="stat-card">
-                  <div className="stat-info">
-                    <h4>Revenue</h4>
-                    <h2>${stats.payout.toFixed(2)}</h2>
                   </div>
                 </div>
              </div>

@@ -93,7 +93,7 @@ const AddPublisher = ({ onCancel, onSave, initialData }) => {
             type="email"
             name="email"
             className="form-input"
-            placeholder="Unique Publisher Email"
+            placeholder="Publisher Email"
             value={formData.email}
             onChange={handleChange}
             required

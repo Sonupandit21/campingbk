@@ -50,12 +50,9 @@ const PublisherDashboard = () => {
     campaignName: true,
     goalName: true,
     source: true,
-    unique_clicks: true,
     clicks: true,
     conversions: true,
-    cr: true,
-    epc: true,
-    payout: true
+    cr: true
   });
 
   const toggleSidebar = () => {
@@ -349,12 +346,9 @@ const PublisherDashboard = () => {
                                 {visibleColumns.campaignName && <th onClick={() => handleSort('campaignName')} style={{cursor:'pointer'}}>Campaign {sortConfig.key==='campaignName'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.goalName && <th onClick={() => handleSort('goalName')} style={{cursor:'pointer'}}>Goal Name {sortConfig.key==='goalName'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.source && <th onClick={() => handleSort('source')} style={{cursor:'pointer'}}>Source {sortConfig.key==='source'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.unique_clicks && <th onClick={() => handleSort('unique_clicks')} style={{cursor:'pointer'}}>Unique {sortConfig.key==='unique_clicks'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.clicks && <th onClick={() => handleSort('clicks')} style={{cursor:'pointer'}}>Clicks {sortConfig.key==='clicks'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.conversions && <th onClick={() => handleSort('conversions')} style={{cursor:'pointer'}}>Approved {sortConfig.key==='conversions'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                                {visibleColumns.conversions && <th onClick={() => handleSort('conversions')} style={{cursor:'pointer'}}>Conversions {sortConfig.key==='conversions'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                                 {visibleColumns.cr && <th onClick={() => handleSort('cr')} style={{cursor:'pointer'}}>CR% {sortConfig.key==='cr'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.epc && <th onClick={() => handleSort('epc')} style={{cursor:'pointer'}}>EPC {sortConfig.key==='epc'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
-                                {visibleColumns.payout && <th onClick={() => handleSort('payout')} style={{cursor:'pointer'}}>Revenue {sortConfig.key==='payout'&&(sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -367,12 +361,9 @@ const PublisherDashboard = () => {
                                         {visibleColumns.campaignName && <td>{row.campaignName}</td>}
                                         {visibleColumns.goalName && <td>{row.goalName || 'N/A'}</td>}
                                         {visibleColumns.source && <td style={{wordBreak:'break-all'}}>{row.source || '-'}</td>}
-                                        {visibleColumns.unique_clicks && <td>{row.unique_clicks}</td>}
                                         {visibleColumns.clicks && <td>{row.clicks}</td>}
                                         {visibleColumns.conversions && <td>{row.conversions}</td>}
                                         {visibleColumns.cr && <td>{row.cr}%</td>}
-                                        {visibleColumns.epc && <td>${row.epc}</td>}
-                                        {visibleColumns.payout && <td>${row.payout.toFixed(2)}</td>}
                                     </tr>
                                 ))
                             ) : (
@@ -390,12 +381,9 @@ const PublisherDashboard = () => {
                                     {visibleColumns.campaignName && <td>-</td>}
                                     {visibleColumns.goalName && <td>-</td>}
                                     {visibleColumns.source && <td>-</td>}
-                                    {visibleColumns.unique_clicks && <td>{processedData.reduce((a,c)=>a+(c.unique_clicks||0), 0)}</td>}
                                     {visibleColumns.clicks && <td>{processedData.reduce((a,c)=>a+(c.clicks||0), 0)}</td>}
                                     {visibleColumns.conversions && <td>{processedData.reduce((a,c)=>a+(c.conversions||0), 0)}</td>}
                                     {visibleColumns.cr && <td>{(processedData.reduce((a,c)=>a+(c.conversions||0),0)/processedData.reduce((a,c)=>a+(c.clicks||1), 1)*100).toFixed(2)}%</td>}
-                                    {visibleColumns.epc && <td>${(processedData.reduce((a,c)=>a+(c.payout||0),0)/processedData.reduce((a,c)=>a+(c.clicks||1),1)).toFixed(4)}</td>}
-                                    {visibleColumns.payout && <td>${processedData.reduce((a,c)=>a+(c.payout||0),0).toFixed(2)}</td>}
                                 </tr>
                             </tfoot>
                         )}
@@ -427,12 +415,6 @@ const PublisherDashboard = () => {
                   <div className="stat-info">
                     <h4>Conversions</h4>
                     <h2>{stats.conversions}</h2>
-                  </div>
-                </div>
-                 <div className="stat-card">
-                  <div className="stat-info">
-                    <h4>Revenue</h4>
-                    <h2>${stats.payout.toFixed(2)}</h2>
                   </div>
                 </div>
              </div>

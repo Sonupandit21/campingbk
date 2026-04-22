@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import './Reports.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
@@ -128,6 +129,65 @@ const Reports = () => {
 
     const toggleColumn = (column) => {
         setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
+    };
+
+    const handleDownloadExcel = () => {
+        if (processedData.length === 0) {
+            alert('No data to export');
+            return;
+        }
+
+        // Prepare data for Excel
+        const excelData = processedData.map(row => {
+            const exportRow = {};
+            
+            if (visibleColumns.date) exportRow['Date'] = row.date;
+            if (visibleColumns.campaignId) exportRow['Camp ID'] = row.camp_id;
+            if (visibleColumns.campaignName) exportRow['Campaign'] = row.campaignName;
+            if (visibleColumns.goalName) exportRow['Goal Name'] = row.goalName;
+            if (visibleColumns.publisherId) exportRow['Pub ID'] = row.publisher_id;
+            if (visibleColumns.publisherName) exportRow['Publisher'] = row.publisherName;
+            if (visibleColumns.source) exportRow['Source'] = row.source;
+            if (visibleColumns.gross_clicks) exportRow['Gross Clicks'] = row.gross_clicks || 0;
+            if (visibleColumns.clicks) exportRow['Clicks'] = row.clicks || 0;
+            if (visibleColumns.unique_clicks) exportRow['Unique Clicks'] = row.unique_clicks || 0;
+            if (visibleColumns.sampled_clicks) exportRow['Sampled Clicks'] = row.sampled_clicks || 0;
+            if (visibleColumns.gross_conversions) exportRow['Gross Conversions'] = row.gross_conversions || 0;
+            if (visibleColumns.sampled_conversions) exportRow['Sampled Conversions'] = row.sampled_conversions || 0;
+            if (visibleColumns.conversions) exportRow['Conversions'] = row.conversions || 0;
+            if (visibleColumns.cr) exportRow['CR %'] = `${row.cr}%`;
+            if (visibleColumns.epc) exportRow['EPC'] = `${row.epc}`;
+            if (visibleColumns.payout) exportRow['Payout'] = row.payout;
+
+            return exportRow;
+        });
+
+        // Add Totals Row
+        const totalsRow = {};
+        if (visibleColumns.date) totalsRow['Date'] = 'TOTAL';
+        if (visibleColumns.gross_clicks) totalsRow['Gross Clicks'] = totals.gross_clicks;
+        if (visibleColumns.clicks) totalsRow['Clicks'] = totals.clicks;
+        if (visibleColumns.unique_clicks) totalsRow['Unique Clicks'] = totals.unique_clicks;
+        if (visibleColumns.sampled_clicks) totalsRow['Sampled Clicks'] = totals.sampled_clicks;
+        if (visibleColumns.gross_conversions) totalsRow['Gross Conversions'] = totals.gross_conversions;
+        if (visibleColumns.sampled_conversions) totalsRow['Sampled Conversions'] = totals.sampled_conversions;
+        if (visibleColumns.conversions) totalsRow['Conversions'] = totals.conversions;
+        if (visibleColumns.cr) totalsRow['CR %'] = `${(totals.clicks > 0 ? (totals.conversions / totals.clicks * 100).toFixed(2) : 0)}%`;
+        if (visibleColumns.epc) totalsRow['EPC'] = `${(totals.clicks > 0 ? totals.payout / totals.clicks : 0).toFixed(4)}`;
+        if (visibleColumns.payout) totalsRow['Payout'] = totals.payout;
+        
+        excelData.push(totalsRow);
+
+        // Create sheet
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+
+        // Generate filename
+        const fileName = `Reports_${filters.startDate}_to_${filters.endDate}.xlsx`;
+        
+        // Export file
+        XLSX.writeFile(workbook, fileName);
     };
 
     // Filter and Sort Logic
@@ -262,11 +322,30 @@ const Reports = () => {
                             border: 'none',
                             borderRadius: '6px',
                             cursor: 'pointer',
-                            fontWeight: 500
+                            fontWeight: 500,
+                            marginRight: '10px'
                         }}
                         title="Refresh report data"
                     >
                         🔄 Refresh
+                    </button>
+                    <button 
+                        onClick={handleDownloadExcel}
+                        style={{ 
+                            padding: '8px 16px',
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                        title="Download as Excel"
+                    >
+                        📥 Download Excel
                     </button>
                 </div>
 

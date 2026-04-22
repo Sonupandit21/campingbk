@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -20,7 +21,8 @@ import {
   Columns,
   RefreshCw,
   MoreVertical,
-  Activity
+  Activity,
+  Download
 } from 'lucide-react';
 import './PublisherDashboard.css';
 
@@ -226,6 +228,52 @@ const PublisherDashboard = () => {
 
     return data;
   }, [reportData, visibleColumns, searchTerm, sortConfig]);
+
+  const handleDownloadExcel = () => {
+    if (processedData.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = processedData.map(row => {
+      const exportRow = {};
+      
+      if (visibleColumns.date) exportRow['Date'] = row.date;
+      if (visibleColumns.campaignName) exportRow['Campaign'] = row.campaignName;
+      if (visibleColumns.goalName) exportRow['Goal'] = row.goalName || 'N/A';
+      if (visibleColumns.source) exportRow['Source'] = row.source || '';
+      if (visibleColumns.clicks) exportRow['Clicks'] = row.clicks || 0;
+      if (visibleColumns.conversions) exportRow['Conversions'] = row.conversions || 0;
+      if (visibleColumns.cr) exportRow['CR %'] = `${row.cr}%`;
+
+      return exportRow;
+    });
+
+    // Add Totals Row
+    const totalsRow = {};
+    if (visibleColumns.date) totalsRow['Date'] = 'TOTAL';
+    if (visibleColumns.clicks) totalsRow['Clicks'] = processedData.reduce((a, c) => a + (c.clicks || 0), 0);
+    if (visibleColumns.conversions) totalsRow['Conversions'] = processedData.reduce((a, c) => a + (c.conversions || 0), 0);
+    if (visibleColumns.cr) {
+        const totalClicks = processedData.reduce((a, c) => a + (c.clicks || 0), 0);
+        const totalConversions = processedData.reduce((a, c) => a + (c.conversions || 0), 0);
+        totalsRow['CR %'] = totalClicks > 0 ? `${((totalConversions / totalClicks) * 100).toFixed(2)}%` : '0%';
+    }
+    
+    excelData.push(totalsRow);
+
+    // Create sheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Publisher_Reports");
+
+    // Generate filename
+    const fileName = `Publisher_Report_${startDate}_to_${endDate}.xlsx`;
+    
+    // Export file
+    XLSX.writeFile(workbook, fileName);
+  };
 
   const handleLogout = () => {
     logout();
@@ -512,6 +560,27 @@ const PublisherDashboard = () => {
                       </div>
                     )}
                   </div>
+                  <button 
+                      onClick={handleDownloadExcel} 
+                      style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px', 
+                          padding: '8px 16px', 
+                          background: '#4f46e5', 
+                          border: 'none', 
+                          borderRadius: '12px', 
+                          color: 'white', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.3s',
+                          fontWeight: '600',
+                          fontSize: '0.9rem'
+                      }}
+                      title="Download as Excel"
+                  >
+                      <Download size={18} />
+                      Export
+                  </button>
                   <button className="sidebar-toggle" onClick={fetchReportData}>
                       <RefreshCw size={18} />
                   </button>

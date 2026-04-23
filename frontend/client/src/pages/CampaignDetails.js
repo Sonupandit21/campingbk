@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AddSamplingModal from '../components/AddSamplingModal';
 import AddClicksModal from '../components/AddClicksModal';
+import AddPayoutModal from '../components/AddPayoutModal';
 import './CampaignDetails.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
@@ -283,6 +284,83 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
     const openEditClicks = (index) => {
         setEditingClicksIndex(index);
         setIsClicksModalOpen(true);
+    };
+
+    // Payouts Logic
+    const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+    const [editingPayoutIndex, setEditingPayoutIndex] = useState(null);
+
+    const handleSavePayout = async (rule) => {
+        let updatedPayouts;
+        const currentPayouts = campaign.payouts || [];
+        
+        if (editingPayoutIndex !== null) {
+            updatedPayouts = [...currentPayouts];
+            updatedPayouts[editingPayoutIndex] = rule;
+        } else {
+            updatedPayouts = [...currentPayouts, rule];
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${BACKEND_URL}/api/campaigns/${campaign.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ payouts: updatedPayouts })
+            });
+
+            if (response.ok) {
+                if (onUpdate) onUpdate();
+                setIsPayoutModalOpen(false);
+                setEditingPayoutIndex(null);
+            } else {
+                alert('Failed to save payout rule');
+            }
+        } catch (error) {
+            console.error('Error saving payout:', error);
+            alert('Error saving payout rule');
+        }
+    };
+
+    const handleDeletePayout = async (index) => {
+        if (!window.confirm('Are you sure you want to delete this payout rule?')) return;
+
+        const currentPayouts = campaign.payouts || [];
+        const updatedPayouts = currentPayouts.filter((_, i) => i !== index);
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${BACKEND_URL}/api/campaigns/${campaign.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ payouts: updatedPayouts })
+            });
+
+            if (response.ok) {
+                if (onUpdate) onUpdate();
+            } else {
+                alert('Failed to delete payout rule');
+            }
+        } catch (error) {
+            console.error('Error deleting payout:', error);
+            alert('Error deleting payout rule');
+        }
+    };
+
+    const openAddPayout = () => {
+        setEditingPayoutIndex(null);
+        setIsPayoutModalOpen(true);
+    };
+
+    const openEditPayout = (index) => {
+        setEditingPayoutIndex(index);
+        setIsPayoutModalOpen(true);
     };
 
     // Tracking Link Logic
@@ -568,6 +646,72 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
                 onSave={handleSaveClicks}
                 publishers={publishers}
                 initialData={editingClicksIndex !== null ? campaign.clicksSettings[editingClicksIndex] : null}
+            />
+
+            {/* Payouts Section */}
+            <div className="card" style={{marginTop: '2rem'}}>
+                <div className="card-header" style={{display: 'flex', justifyContent: 'center', position: 'relative'}}>
+                    <h3 style={{position: 'absolute', left: 0}}>Payouts</h3>
+                    <button className="btn-primary" onClick={openAddPayout}>+ Add Payout</button>
+                </div>
+                
+                <div className="table-responsive">
+                    <table className="data-table" style={{width: '100%', borderCollapse: 'collapse', marginTop: '1rem'}}>
+                        <thead>
+                            <tr style={{background: '#f8fafc',  textAlign: 'left', color: '#334155'}}>
+                                <th style={{padding: '0.75rem'}}>Goal</th>
+                                <th style={{padding: '0.75rem'}}>Publisher</th>
+                                <th style={{padding: '0.75rem'}}>Type</th>
+                                <th style={{padding: '0.75rem'}}>Value</th>
+                                <th style={{padding: '0.75rem'}}>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(campaign.payouts && campaign.payouts.length > 0) ? (
+                                campaign.payouts.map((rule, index) => (
+                                    <tr key={index} style={{borderBottom: '1px solid #f1f5f9'}}>
+                                        <td style={{padding: '0.75rem'}}>{rule.goalName}</td>
+                                        <td style={{padding: '0.75rem'}}>{rule.publisherName}</td>
+                                        <td style={{padding: '0.75rem'}}>{rule.payoutType === 'fixed' ? 'Fixed' : 'Percentage'}</td>
+                                        <td style={{padding: '0.75rem'}}>
+                                            {rule.payoutType === 'percentage' ? `${rule.payoutValue}%` : `₹${rule.payoutValue}`}
+                                        </td>
+                                        <td style={{padding: '0.75rem'}}>
+                                            <button 
+                                                className="btn-text" 
+                                                onClick={() => openEditPayout(index)}
+                                                style={{marginRight: '10px', color: '#3b82f6', cursor: 'pointer', background: 'none', border: 'none'}}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button 
+                                                className="btn-text" 
+                                                onClick={() => handleDeletePayout(index)}
+                                                style={{color: '#ef4444', cursor: 'pointer', background: 'none', border: 'none'}}
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="5" style={{padding: '2rem', textAlign: 'center', color: '#94a3b8'}}>
+                                        No payout rules added
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <AddPayoutModal 
+                isOpen={isPayoutModalOpen}
+                onClose={() => setIsPayoutModalOpen(false)}
+                onSave={handleSavePayout}
+                publishers={publishers}
+                initialData={editingPayoutIndex !== null ? campaign.payouts[editingPayoutIndex] : null}
             />
 
             {/* Bottom Row: Publisher Access */}

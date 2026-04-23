@@ -465,8 +465,8 @@ const Reports = () => {
                     <h3>{totals.sampled_conversions}</h3>
                  </div>
                  <div className="summary-card">
-                    <h4>Total Revenue</h4>
-                    <h3>${totals.payout.toFixed(2)}</h3>
+                    <h4>Total Payout</h4>
+                    <h3>₹{totals.payout.toFixed(2)}</h3>
                  </div>
             </div>
 
@@ -516,8 +516,8 @@ const Reports = () => {
                                     {visibleColumns.sampled_conversions && <td>{(row.sampled_conversions || 0).toLocaleString()}</td>}
                                     {visibleColumns.conversions && <td>{row.conversions}</td>}
                                     {visibleColumns.cr && <td>{row.cr}%</td>}
-                                    {visibleColumns.epc && <td>${row.epc}</td>}
-                                    {visibleColumns.payout && <td>${row.payout.toFixed(2)}</td>}
+                                    {visibleColumns.epc && <td>₹{row.epc}</td>}
+                                    {visibleColumns.payout && <td>₹{row.payout.toFixed(2)}</td>}
                                 </tr>
                             ))
                         )}
@@ -540,8 +540,8 @@ const Reports = () => {
                                 {visibleColumns.sampled_conversions && <td>{totals.sampled_conversions.toLocaleString()}</td>}
                                 {visibleColumns.conversions && <td>{totals.conversions.toLocaleString()}</td>}
                                 {visibleColumns.cr && <td>{(totals.clicks > 0 ? (totals.conversions / totals.clicks * 100).toFixed(2) : 0)}%</td>}
-                                {visibleColumns.epc && <td>${(totals.clicks > 0 ? totals.payout / totals.clicks : 0).toFixed(4)}</td>}
-                                {visibleColumns.payout && <td>${totals.payout.toFixed(2)}</td>}
+                                {visibleColumns.epc && <td>₹{(totals.clicks > 0 ? totals.payout / totals.clicks : 0).toFixed(4)}</td>}
+                                {visibleColumns.payout && <td>₹{totals.payout.toFixed(2)}</td>}
                             </tr>
                         </tfoot>
                     )}

@@ -53,6 +53,13 @@ const campaignSchema = new mongoose.Schema({
     cutoffType: { type: String, enum: ['percentage', 'count'], default: 'percentage' },
     value: Number,
     action: { type: String, default: 'Cutoff' }
+  }],
+  payouts: [{
+    publisherId: String,
+    publisherName: String,
+    goalName: { type: String, default: 'Gross Conversions' },
+    payoutType: { type: String, enum: ['fixed', 'percentage'], default: 'fixed' },
+    payoutValue: Number
   }]
 }, {
   timestamps: true
@@ -68,5 +75,7 @@ const campaignSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Campaign', campaignSchema);
 // Mongoose adds `id` virtual by default.
+
+module.exports = mongoose.model('Campaign', campaignSchema);
 
 module.exports = mongoose.model('Campaign', campaignSchema);

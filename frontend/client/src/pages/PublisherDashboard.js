@@ -72,7 +72,8 @@ const PublisherDashboard = () => {
     source: true,
     clicks: true,
     conversions: true,
-    cr: true
+    cr: true,
+    payout: true
   });
 
   const publisher = user || { fullName: 'Publisher', id: 0, email: '', status: 'Active' };
@@ -245,6 +246,7 @@ const PublisherDashboard = () => {
       if (visibleColumns.source) exportRow['Source'] = row.source || '';
       if (visibleColumns.clicks) exportRow['Clicks'] = row.clicks || 0;
       if (visibleColumns.conversions) exportRow['Conversions'] = row.conversions || 0;
+      if (visibleColumns.payout) exportRow['Payout'] = row.payout || 0;
       if (visibleColumns.cr) exportRow['CR %'] = `${row.cr}%`;
 
       return exportRow;
@@ -255,6 +257,7 @@ const PublisherDashboard = () => {
     if (visibleColumns.date) totalsRow['Date'] = 'TOTAL';
     if (visibleColumns.clicks) totalsRow['Clicks'] = processedData.reduce((a, c) => a + (c.clicks || 0), 0);
     if (visibleColumns.conversions) totalsRow['Conversions'] = processedData.reduce((a, c) => a + (c.conversions || 0), 0);
+    if (visibleColumns.payout) totalsRow['Payout'] = processedData.reduce((a, c) => a + (c.payout || 0), 0);
     if (visibleColumns.cr) {
         const totalClicks = processedData.reduce((a, c) => a + (c.clicks || 0), 0);
         const totalConversions = processedData.reduce((a, c) => a + (c.conversions || 0), 0);
@@ -429,6 +432,15 @@ const PublisherDashboard = () => {
                   <h2 className="stat-value" style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>{stats.conversions.toLocaleString()}</h2>
                </div>
 
+               <div className="pub-stat-card" style={{ border: '1px solid #a5b4fc', borderRadius: '16px', padding: '24px' }}>
+                  <div className="stat-card-row" style={{ marginBottom: '16px' }}>
+                      <span className="stat-label" style={{ textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>Earnings (Payout)</span>
+                      <div className="stat-icon-box" style={{ background: '#eef2ff', color: '#4f46e5', width: '40px', height: '40px', borderRadius: '12px' }}>
+                          <TrendingUp size={20} />
+                      </div>
+                  </div>
+                  <h2 className="stat-value" style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>₹{stats.payout.toLocaleString()}</h2>
+               </div>
 
                <div className="pub-stat-card" style={{ border: '1px solid #a5b4fc', borderRadius: '16px', padding: '24px' }}>
                   <div className="stat-card-row" style={{ marginBottom: '16px' }}>
@@ -458,6 +470,7 @@ const PublisherDashboard = () => {
                                 <th style={{ background: '#f5f5f4', padding: '16px 24px', color: '#57534e', borderBottom: '1px solid #e7e5e4' }}>Campaign</th>
                                 <th style={{ background: '#f5f5f4', padding: '16px 24px', color: '#57534e', borderBottom: '1px solid #e7e5e4' }}>Clicks</th>
                                 <th style={{ background: '#f5f5f4', padding: '16px 24px', color: '#57534e', borderBottom: '1px solid #e7e5e4' }}>Conversions</th>
+                                <th style={{ background: '#f5f5f4', padding: '16px 24px', color: '#57534e', borderBottom: '1px solid #e7e5e4' }}>Payout</th>
                                 <th style={{ background: '#f5f5f4', padding: '16px 24px', color: '#57534e', borderBottom: '1px solid #e7e5e4' }}>CR%</th>
                             </tr>
                         </thead>
@@ -472,6 +485,7 @@ const PublisherDashboard = () => {
                                             {row.conversions.toLocaleString()}
                                         </span>
                                     </td>
+                                    <td style={{ padding: '16px 24px', color: '#0f172a', fontWeight: '600' }}>₹{(row.payout || 0).toLocaleString()}</td>
                                     <td style={{ padding: '16px 24px', fontWeight: '600', color: '#0f172a' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <span style={{ minWidth: '45px' }}>{row.cr}%</span>
@@ -597,6 +611,7 @@ const PublisherDashboard = () => {
                       {visibleColumns.source && <th>Source</th>}
                       {visibleColumns.clicks && <th onClick={() => setSortConfig({ key: 'clicks', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })} style={{ cursor: 'pointer' }}>Clicks</th>}
                       {visibleColumns.conversions && <th onClick={() => setSortConfig({ key: 'conversions', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })} style={{ cursor: 'pointer' }}>Conversions</th>}
+                      {visibleColumns.payout && <th onClick={() => setSortConfig({ key: 'payout', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })} style={{ cursor: 'pointer' }}>Payout</th>}
                       {visibleColumns.cr && <th onClick={() => setSortConfig({ key: 'cr', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })} style={{ cursor: 'pointer' }}>CR%</th>}
                     </tr>
                   </thead>
@@ -612,6 +627,7 @@ const PublisherDashboard = () => {
                           {visibleColumns.source && <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{row.source || '-'}</td>}
                           {visibleColumns.clicks && <td>{row.clicks.toLocaleString()}</td>}
                           {visibleColumns.conversions && <td style={{ fontWeight: '700', color: 'var(--success)' }}>{row.conversions.toLocaleString()}</td>}
+                          {visibleColumns.payout && <td style={{ fontWeight: '700', color: '#4f46e5' }}>₹{(row.payout || 0).toLocaleString()}</td>}
                           {visibleColumns.cr && <td>{row.cr}%</td>}
                         </tr>
                       ))
@@ -628,6 +644,7 @@ const PublisherDashboard = () => {
                              {visibleColumns.source && <td>-</td>}
                              {visibleColumns.clicks && <td>{processedData.reduce((a,c)=>a+(c.clicks||0), 0).toLocaleString()}</td>}
                              {visibleColumns.conversions && <td>{processedData.reduce((a,c)=>a+(c.conversions||0), 0).toLocaleString()}</td>}
+                             {visibleColumns.payout && <td style={{ color: '#4f46e5' }}>₹{processedData.reduce((a,c)=>a+(c.payout||0), 0).toLocaleString()}</td>}
                              {visibleColumns.cr && <td>{(processedData.reduce((a,c)=>a+(c.conversions||0),0)/processedData.reduce((a,c)=>a+(c.clicks||1), 1)*100).toFixed(2)}%</td>}
                           </tr>
                       </tfoot>

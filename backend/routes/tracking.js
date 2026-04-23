@@ -355,14 +355,33 @@ const handleConversion = async (req, res) => {
             return res.status(200).json({ message: 'Conversion already recorded' });
         }
 
-        const validPayout = parseFloat(payout) || 0;
+        const advertiserPayout = parseFloat(payout) || 0;
+        let finalPayout = advertiserPayout;
+
+        // Calculate dynamic publisher payout if rules exist
+        if (campaign && campaign.payouts && campaign.payouts.length > 0) {
+            const rule = campaign.payouts.find(r => {
+                const pubMatch = r.publisherId === String(publisher_id);
+                const goalMatch = r.goalName.toLowerCase().trim() === finalGoalName.toLowerCase().trim();
+                return pubMatch && goalMatch;
+            });
+
+            if (rule) {
+                if (rule.payoutType === 'fixed') {
+                    finalPayout = rule.payoutValue;
+                } else if (rule.payoutType === 'percentage') {
+                    finalPayout = (rule.payoutValue / 100) * advertiserPayout;
+                }
+                console.log(`[Conversion] Applied Payout Rule: ${rule.payoutType} value=${rule.payoutValue} -> finalPayout=${finalPayout}`);
+            }
+        }
 
         // 3. Save Conversion
         const newConversion = await Conversion.create({
             click_id,
             camp_id,
             publisher_id,
-            payout: validPayout,
+            payout: finalPayout,
             source,
             goal_name: finalGoalName,
             gaid,
@@ -399,14 +418,14 @@ const handleConversion = async (req, res) => {
 
 
         // 6. Fire Trackier S2S Postback (ALWAYS FIRE to track revenue)
-        fireTrackierPostback(click_id, validPayout).catch(err => console.error('[Trackier] Error firing postback:', err));
+        fireTrackierPostback(click_id, finalPayout).catch(err => console.error('[Trackier] Error firing postback:', err));
 
         // 7. Fire Legacy Postbacks (ONLY IF NOT SAMPLED)
         if (!isSampled) {
             // Construct params for macro replacement
             const params = {
                 click_id,
-                payout: validPayout,
+                payout: finalPayout,
                 camp_id,
                 publisher_id,
                 source,

@@ -597,15 +597,3 @@ router.get('/', handleTracking);
 router.get('/conversion', handleConversion); // Dedicated conversion endpoint
 
 module.exports = router;
-
-  } catch (error) {
-    console.error('Tracking error:', error);
-    res.status(500).json({ error: 'Tracking failed' });
-  }
-};
-
-// Tracking and Postback Endpoints
-router.get('/', handleTracking);
-router.get('/conversion', handleConversion); // Dedicated conversion endpoint
-
-module.exports = router;

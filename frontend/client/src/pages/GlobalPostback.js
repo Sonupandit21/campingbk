@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const GlobalPostback = () => {
     const [url, setUrl] = useState('');
@@ -120,7 +120,7 @@ const GlobalPostback = () => {
                                 border: '1px solid #cbd5e1',
                                 fontSize: '1rem',
                                 color: '#334155'
-                            }}
+                             }}
                             required 
                         />
                     </div>
@@ -159,100 +159,6 @@ const GlobalPostback = () => {
                         wordBreak: 'break-all'
                     }}>
                         {BACKEND_URL}/api/track/conversion?click_id=CLICK_ID&payout=AMOUNT
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default GlobalPostback;
-                        <label style={{ display: 'block', marginBottom: '10px', fontWeight: '700', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                            Your Global Postback URL (Outbound)
-                        </label>
-                        <div style={{ position: 'relative' }}>
-                            <input 
-                                type="url" 
-                                className="pub-input"
-                                value={url}
-                                onChange={(e) => setUrl(e.target.value)}
-                                placeholder="https://your-tracker.com/postback?clickid={click_id}&payout={payout}"
-                                style={{ 
-                                    width: '100%', 
-                                    padding: '14px 16px', 
-                                    fontSize: '1rem',
-                                    backgroundColor: '#fcfcfc'
-                                }}
-                                required 
-                            />
-                        </div>
-                        <p style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            Example: <code>https://webhook.site/test?cid={"{"}click_id{"}"}&amt={"{"}payout{"}"}</code>
-                        </p>
-                    </div>
-
-                    <button 
-                        type="submit" 
-                        disabled={loading}
-                        style={{
-                            background: 'var(--primary)',
-                            color: 'white',
-                            padding: '12px 28px',
-                            border: 'none',
-                            borderRadius: '12px',
-                            fontSize: '1rem',
-                            fontWeight: '700',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.7 : 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            transition: 'var(--transition)',
-                            boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
-                        }}
-                    >
-                        {loading ? 'Saving Changes...' : <><Save size={18} /> Save Configuration</>}
-                    </button>
-                </form>
-
-                <div style={{ marginTop: '40px', paddingTop: '32px', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <h4 style={{ margin: 0, fontWeight: '800', color: 'var(--text-main)' }}>Your Inbound Tracking Landing</h4>
-                        <button 
-                            onClick={handleCopy}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                background: copied ? '#dcfce7' : '#f1f5f9',
-                                color: copied ? '#166534' : 'var(--text-main)',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            {copied ? <><CheckCircle2 size={14} /> Copied!</> : <><Copy size={14} /> Copy URL</>}
-                        </button>
-                    </div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px', lineHeight: '1.5' }}>
-                        If you are building your own custom tracking, use this endpoint to fire conversions back to Trackier Panel.
-                    </p>
-                    <div style={{ 
-                        background: '#0f172a', 
-                        padding: '16px 20px', 
-                        borderRadius: '12px', 
-                        color: '#38bdf8', 
-                        fontFamily: 'JetBrains Mono, Fira Code, monospace',
-                        fontSize: '0.85rem',
-                        wordBreak: 'break-all',
-                        border: '1px solid #1e293b',
-                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-                    }}>
-                        <span style={{ color: '#94a3b8' }}>GET</span> {BACKEND_URL}/api/track/conversion?click_id=<span style={{ color: '#fbbf24' }}>CLICK_ID</span>&payout=<span style={{ color: '#fbbf24' }}>AMOUNT</span>{securityToken ? <>&security_token=<span style={{ color: '#fbbf24' }}>{securityToken}</span></> : ''}
                     </div>
                 </div>
             </div>

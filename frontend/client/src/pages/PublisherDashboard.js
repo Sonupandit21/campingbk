@@ -25,8 +25,10 @@ import {
   Download
 } from 'lucide-react';
 import './PublisherDashboard.css';
+import GlobalPostback from './GlobalPostback';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const PublisherDashboard = () => {
   const navigate = useNavigate();
@@ -701,7 +703,11 @@ const PublisherDashboard = () => {
             </div>
           )}
 
-          {(activeTab === 'Global Postback' || activeTab === 'Settings') && (
+          {activeTab === 'Global Postback' && (
+            <GlobalPostback />
+          )}
+
+          {activeTab === 'Settings' && (
             <div className="pub-table-card" style={{ padding: '80px', textAlign: 'center' }}>
                 <Globe size={60} color="var(--primary)" style={{ marginBottom: '24px' }} />
                 <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{activeTab} Module</h3>
@@ -710,6 +716,7 @@ const PublisherDashboard = () => {
                 </p>
             </div>
           )}
+
         </div>
       </main>
     </div>

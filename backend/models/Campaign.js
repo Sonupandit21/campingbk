@@ -74,8 +74,4 @@ const campaignSchema = new mongoose.Schema({
 // Mongoose adds `id` virtual by default.
 
 module.exports = mongoose.model('Campaign', campaignSchema);
-// Mongoose adds `id` virtual by default.
 
-module.exports = mongoose.model('Campaign', campaignSchema);
-
-module.exports = mongoose.model('Campaign', campaignSchema);

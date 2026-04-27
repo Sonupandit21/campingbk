@@ -20,6 +20,7 @@ const publisherSchema = new mongoose.Schema({
     required: true
   },
   postbackUrl: String,
+  securityToken: String,
   status: {
     type: String,
     enum: ['Active', 'Inactive'],

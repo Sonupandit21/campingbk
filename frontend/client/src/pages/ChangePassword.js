@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Auth.css'; // Reusing Auth styles
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const ChangePassword = () => {
   const { user } = useAuth();

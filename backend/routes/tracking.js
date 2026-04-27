@@ -312,7 +312,7 @@ const checkClicksCutoff = async (campaign, publisher, source, rawPublisherId) =>
 // ==========================================
 const handleConversion = async (req, res) => {
     try {
-        const { click_id, payout, camp_id: queryCampId, goal_name, event } = req.query;
+        const { click_id, payout, camp_id: queryCampId, goal_name, event, security_token } = req.query;
 
         // 1. Validation
         if (!click_id) {
@@ -347,6 +347,38 @@ const handleConversion = async (req, res) => {
 
         const finalGoalName = goal_name || event || (campaign ? campaign.defaultGoalName : '') || '';
         console.log(`[Conversion] Received for click_id: ${click_id}, payout: ${payout}, goal: ${finalGoalName}`);
+
+        // Security Token Validation
+        if (publisher_id) {
+            try {
+                const allPublishers = await getAllPublishers();
+                const publisherObj = allPublishers.find(p => p.id == publisher_id || p.referenceId == publisher_id || p._id == publisher_id);
+                
+                if (publisherObj && publisherObj.securityToken) {
+                    if (security_token !== publisherObj.securityToken) {
+                        console.error(`[Conversion] Security Token Mismatch for Publisher ${publisher_id}. Received: ${security_token}`);
+                        return res.status(403).json({ error: 'Invalid security token' });
+                    }
+                    console.log(`[Conversion] Security Token Validated for Publisher ${publisher_id}`);
+                }
+            } catch (err) {
+                console.error('[Conversion] Error validating publisher security token:', err);
+            }
+        } else {
+            // Global Security Token Validation (if no publisher_id)
+            try {
+                const config = await getPostbackConfig();
+                if (config && config.securityToken) {
+                    if (security_token !== config.securityToken) {
+                        console.error(`[Conversion] Global Security Token Mismatch. Received: ${security_token}`);
+                        return res.status(403).json({ error: 'Invalid global security token' });
+                    }
+                    console.log(`[Conversion] Global Security Token Validated`);
+                }
+            } catch (err) {
+                console.error('[Conversion] Error validating global security token:', err);
+            }
+        }
 
         // 2. Prevent Duplicates
         const existingConv = await Conversion.findOne({ click_id });

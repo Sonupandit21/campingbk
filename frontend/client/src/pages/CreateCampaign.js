@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CreateCampaign.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const CreateCampaign = ({ onCancel }) => {
   const navigate = useNavigate();

@@ -4,7 +4,7 @@ import AddClicksModal from '../components/AddClicksModal';
 import AddPayoutModal from '../components/AddPayoutModal';
 import './CampaignDetails.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
     // ... (logic remains same)

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import CampaignDetails from './CampaignDetails';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const ManageCampaigns = () => {
     const [campaigns, setCampaigns] = useState([]);

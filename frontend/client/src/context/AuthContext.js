@@ -1,8 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
-// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ;
-const BACKEND_URL = 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+
 
 const AuthContext = createContext(null);
 

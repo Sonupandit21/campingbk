@@ -4,6 +4,10 @@ const postbackConfigSchema = new mongoose.Schema({
   url: {
     type: String,
     default: ''
+  },
+  securityToken: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

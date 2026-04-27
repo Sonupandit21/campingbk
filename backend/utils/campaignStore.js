@@ -73,9 +73,4 @@ module.exports = {
   updateCampaign,
   deleteCampaign
 };
-module.exports = {
-  getAllCampaigns,
-  createCampaign,
-  updateCampaign,
-  deleteCampaign
-};
+

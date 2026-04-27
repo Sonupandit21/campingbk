@@ -14,7 +14,7 @@ import Reports from './Reports';
 
 
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const Dashboard = () => {
   const { user, logout, impersonateLogin } = useAuth();

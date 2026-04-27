@@ -259,9 +259,13 @@ const Dashboard = () => {
             <span className="icon">👤</span> <span className="label">Users</span>
           </a>
 
-          <div className="nav-section">SETTINGS</div>
-          <a href="#" className={`nav-item ${activeTab === 'GlobalPostback' ? 'active' : ''}`} onClick={() => setActiveTab('GlobalPostback')}><span className="icon">⚙</span> <span className="label">Global Postback</span></a>
-          <a href="#" className={`nav-item ${activeTab === 'ChangePassword' ? 'active' : ''}`} onClick={() => setActiveTab('ChangePassword')}><span className="icon">🔒</span> <span className="label">Change Password</span></a>
+          {user?.role === 'superadmin' && (
+            <>
+              <div className="nav-section">SETTINGS</div>
+              <a href="#" className={`nav-item ${activeTab === 'GlobalPostback' ? 'active' : ''}`} onClick={() => setActiveTab('GlobalPostback')}><span className="icon">⚙</span> <span className="label">Global Postback</span></a>
+              <a href="#" className={`nav-item ${activeTab === 'ChangePassword' ? 'active' : ''}`} onClick={() => setActiveTab('ChangePassword')}><span className="icon">🔒</span> <span className="label">Change Password</span></a>
+            </>
+          )}
         </nav>
 
         {/* Sidebar Footer Removed */}
@@ -537,7 +541,7 @@ const Dashboard = () => {
              <ManageCampaigns />
           )}
 
-          {activeTab === 'ChangePassword' && (
+          {activeTab === 'ChangePassword' && user?.role === 'superadmin' && (
              <ChangePassword />
           )}
 
@@ -545,7 +549,7 @@ const Dashboard = () => {
              <EditProfile />
           )}
 
-          {activeTab === 'GlobalPostback' && (
+          {activeTab === 'GlobalPostback' && user?.role === 'superadmin' && (
              <GlobalPostback />
           )}
 

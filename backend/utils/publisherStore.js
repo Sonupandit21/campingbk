@@ -24,8 +24,7 @@ async function createPublisher(publisherData) {
 
   const publisher = new Publisher({
     ...publisherData,
-    publisherId: nextId,
-    securityToken: Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
+    publisherId: nextId
   });
   
   await publisher.save();

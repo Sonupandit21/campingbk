@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Info, Save, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
 
 const GlobalPostback = () => {
     const [url, setUrl] = useState('');
-    const [securityToken, setSecurityToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         fetchConfig();
@@ -23,7 +20,6 @@ const GlobalPostback = () => {
             if (response.ok) {
                 const data = await response.json();
                 setUrl(data.url || '');
-                setSecurityToken(data.securityToken || '');
             }
         } catch (error) {
             console.error('Failed to fetch postback config:', error);
@@ -47,193 +43,130 @@ const GlobalPostback = () => {
             });
 
             if (response.ok) {
-                setMessage({ type: 'success', text: 'Postback configuration saved successfully!' });
-                setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+                setMessage({ type: 'success', text: 'Global Postback URL updated successfully' });
             } else {
-                setMessage({ type: 'error', text: 'Failed to save configuration. Please try again.' });
+                setMessage({ type: 'error', text: 'Failed to update URL' });
             }
         } catch (error) {
             console.error('Save error:', error);
-            setMessage({ type: 'error', text: 'A network error occurred. Please check your connection.' });
+            setMessage({ type: 'error', text: 'An error occurred' });
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleGenerateToken = async () => {
-        setLoading(true);
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${BACKEND_URL}/api/postback/generate-token`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setSecurityToken(data.securityToken);
-                setMessage({ type: 'success', text: 'Security token generated successfully!' });
-                setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-            } else {
-                setMessage({ type: 'error', text: 'Failed to generate token. Contact admin.' });
-            }
-        } catch (error) {
-            console.error('Token generation error:', error);
-            setMessage({ type: 'error', text: 'A network error occurred.' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleCopy = () => {
-        const inboundUrl = `${BACKEND_URL}/api/track/conversion?click_id=CLICK_ID&payout=AMOUNT${securityToken ? `&security_token=${securityToken}` : ''}`;
-        navigator.clipboard.writeText(inboundUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
     };
 
     return (
-        <div className="pub-table-card" style={{ maxWidth: '900px', margin: '0 auto', animation: 'fadeIn 0.5s ease-out' }}>
-            <div className="pub-table-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Globe size={20} color="var(--primary)" />
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Postback & Security Settings</h3>
-                </div>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                    Manage your postback URL and secure your tracking endpoints.
-                </p>
+        <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div className="card-header">
+                <h3>Global Postback</h3>
+                <span className="subtitle">Configure the default postback URL for all conversions</span>
             </div>
             
-            <div style={{ padding: '32px' }}>
+            <div style={{ padding: '2rem' }}>
                 {message.text && (
                     <div style={{
-                        padding: '16px',
-                        borderRadius: '12px',
-                        marginBottom: '24px',
-                        fontSize: '0.95rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        backgroundColor: message.type === 'error' ? '#fef2f2' : '#f0fdf4',
-                        color: message.type === 'error' ? '#991b1b' : '#166534',
-                        border: `1px solid ${message.type === 'error' ? '#fee2e2' : '#dcfce7'}`,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        marginBottom: '1.5rem',
+                        fontSize: '0.9rem',
+                        backgroundColor: message.type === 'error' ? '#fee2e2' : '#dcfce7',
+                        color: message.type === 'error' ? '#ef4444' : '#166534',
+                        border: `1px solid ${message.type === 'error' ? '#fecaca' : '#bbf7d0'}`
                     }}>
-                        {message.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
                         {message.text}
                     </div>
                 )}
 
-                {/* Tracking Security Section */}
-                <div style={{ 
-                    background: '#f8fafc', 
-                    padding: '24px', 
-                    borderRadius: '20px', 
-                    marginBottom: '32px', 
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '20px',
-                    boxShadow: 'inset 0 0 10px rgba(0,0,0,0.02)'
-                }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                            <CheckCircle2 size={18} color="var(--success)" />
-                            <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.1rem', fontWeight: '800' }}>Inbound Security Token</h4>
-                        </div>
-                        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.4' }}>
-                            This token is required in your Tracking Landing URL to authenticate conversion requests.
-                        </p>
-                    </div>
-
-                    {securityToken ? (
-                        <div style={{ 
-                            background: 'white', 
-                            padding: '12px 24px', 
-                            borderRadius: '12px', 
-                            border: '1px solid var(--border)',
-                            fontFamily: 'JetBrains Mono, Fira Code, monospace',
-                            fontWeight: '800',
-                            color: 'var(--primary)',
-                            fontSize: '1.15rem',
-                            letterSpacing: '1px',
-                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-                            minWidth: '160px',
-                            textAlign: 'center'
-                        }}>
-                            {securityToken}
-                        </div>
-                    ) : (
-                        <button 
-                            onClick={handleGenerateToken}
-                            disabled={loading}
-                            style={{
-                                background: 'white',
-                                color: 'var(--primary)',
-                                border: '2px dashed var(--primary-light)',
-                                padding: '10px 24px',
-                                borderRadius: '12px',
-                                fontSize: '0.95rem',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                            onMouseEnter={(e) => { e.target.style.background = '#f5f7ff'; e.target.style.transform = 'translateY(-2px)'; }}
-                            onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.transform = 'translateY(0)'; }}
-                        >
-                            <Save size={16} /> {loading ? 'Generating...' : 'Generate New Token'}
-                        </button>
-                    )}
-                </div>
-
-                <div style={{ 
-                    background: 'linear-gradient(to right, #eff6ff, #f8fafc)', 
-                    padding: '20px', 
-                    borderRadius: '16px', 
-                    marginBottom: '32px', 
-                    border: '1px solid #dbeafe' 
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <Info size={18} color="#2563eb" />
-                        <h4 style={{ margin: 0, color: '#1e40af', fontSize: '1rem', fontWeight: '700' }}>How it works</h4>
-                    </div>
-                    <p style={{ margin: 0, color: '#1e3a8a', fontSize: '0.9rem', lineHeight: '1.6' }}>
-                        When a conversion is recorded for your traffic, our system will automatically fire this URL.
-                        Use the <strong>Macros</strong> below to dynamicially insert conversion details into your URL.
+                <div className="info-box" style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', marginBottom: '2rem', borderLeft: '4px solid #3b82f6' }}>
+                    <h4 style={{ margin: '0 0 0.5rem 0', color: '#1e40af', fontSize: '0.95rem' }}>ℹ️ How it works</h4>
+                    <p style={{ margin: 0, color: '#1e3a8a', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                        This Global Postback URL will be fired for every successful conversion recorded in the system. 
+                        Click on a macro below to add it to your URL.
                     </p>
-                    <div style={{ marginTop: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                         {['{click_id}', '{payout}', '{camp_id}', '{publisher_id}', '{source}'].map(macro => (
-                            <button 
+                            <span 
                                 key={macro}
-                                type="button"
                                 onClick={() => setUrl(prev => prev + macro)}
                                 style={{
                                     background: '#ffffff',
                                     border: '1px solid #bfdbfe',
                                     color: '#2563eb',
-                                    padding: '6px 12px',
-                                    borderRadius: '20px',
-                                    fontSize: '0.8rem',
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '16px',
+                                    fontSize: '0.85rem',
                                     cursor: 'pointer',
-                                    fontWeight: '600',
-                                    transition: 'all 0.2s'
+                                    fontWeight: 500
                                 }}
-                                onMouseEnter={(e) => { e.target.style.background = '#f0f9ff'; e.target.style.borderColor = '#3b82f6'; }}
-                                onMouseLeave={(e) => { e.target.style.background = '#ffffff'; e.target.style.borderColor = '#bfdbfe'; }}
                             >
                                 {macro}
-                            </button>
+                            </span>
                         ))}
                     </div>
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: '24px' }}>
+                    <div style={{ marginBottom: '2rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#334155' }}>Global Postback URL (Outbound)</label>
+                        <input 
+                            type="url" 
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                            placeholder="https://example.com/postback?clickid={click_id}"
+                            style={{ 
+                                width: '100%', 
+                                padding: '1rem', 
+                                borderRadius: '8px', 
+                                border: '1px solid #cbd5e1',
+                                fontSize: '1rem',
+                                color: '#334155'
+                            }}
+                            required 
+                        />
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        disabled={loading}
+                        style={{
+                            background: '#4f46e5',
+                            color: 'white',
+                            padding: '0.75rem 2rem',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.7 : 1
+                        }}
+                    >
+                        {loading ? 'Saving...' : 'Save Configuration'}
+                    </button>
+                </form>
+
+                <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid #e2e8f0' }}>
+                    <h4 style={{ margin: '0 0 1rem 0', color: '#334155' }}>Your Tracking Endpoint (Inbound)</h4>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                        Provide this URL to your publishers to fire conversions back to your system.
+                    </p>
+                    <div style={{ 
+                        background: '#1e293b', 
+                        padding: '1rem', 
+                        borderRadius: '8px', 
+                        color: '#fbbf24', 
+                        fontFamily: 'monospace',
+                        fontSize: '0.9rem',
+                        wordBreak: 'break-all'
+                    }}>
+                        {BACKEND_URL}/api/track/conversion?click_id=CLICK_ID&payout=AMOUNT
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default GlobalPostback;
                         <label style={{ display: 'block', marginBottom: '10px', fontWeight: '700', color: 'var(--text-main)', fontSize: '0.95rem' }}>
                             Your Global Postback URL (Outbound)
                         </label>

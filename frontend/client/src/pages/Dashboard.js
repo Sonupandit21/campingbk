@@ -247,7 +247,7 @@ const Dashboard = () => {
 
           <div className="nav-section">PUBLISHERS</div>
           <a href="#" className={`nav-item ${activeTab === 'ManagePublishers' || activeTab === 'AddPublisher' ? 'active' : ''}`} onClick={() => { setActiveTab('ManagePublishers'); setEditingPublisher(null); }}>
-            <span className="icon">👥</span> <span className="label">Manage</span>
+            <span className="icon">👥</span> <span className="label">Manage</span>        
           </a>
 
           <div className="nav-section">REPORTS</div>

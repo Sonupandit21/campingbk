@@ -149,10 +149,11 @@ const PublisherDashboard = () => {
       const d = r.date || 'Unknown';
       const c = r.campaignName || 'Unknown';
       const key = `${d}|${c}`;
-      if (!map.has(key)) map.set(key, { date: d, campaignName: c, clicks: 0, conversions: 0 });
+      if (!map.has(key)) map.set(key, { date: d, campaignName: c, clicks: 0, conversions: 0, payout: 0 });
       const entry = map.get(key);
       entry.clicks += (r.clicks || 0);
       entry.conversions += (r.conversions || 0);
+      entry.payout += (r.payout || 0);
     });
     return Array.from(map.values())
       .sort((a,b) => new Date(b.date) - new Date(a.date))
@@ -521,6 +522,12 @@ const PublisherDashboard = () => {
                             <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>Conversions</div>
                             <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a' }}>
                                 {dailyBreakdown.reduce((a, c) => a + c.conversions, 0).toLocaleString()}
+                            </div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>Payout</div>
+                            <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#4f46e5' }}>
+                                ₹{dailyBreakdown.reduce((a, c) => a + (c.payout || 0), 0).toLocaleString()}
                             </div>
                         </div>
                         <div style={{ textAlign: 'center' }}>

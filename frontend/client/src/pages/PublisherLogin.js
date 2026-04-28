@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Auth.css'; // Reusing Auth.css
 
@@ -101,9 +101,7 @@ const PublisherLogin = () => {
           </button>
         </form>
 
-        <div className="auth-footer">
-          New User? <Link to="/signup" className="auth-link">Create an account</Link>
-        </div>
+
       </div>
     </div>
   );

@@ -24,16 +24,8 @@ router.post('/register', async (req, res) => {
     step = 'createUser';
     const user = await createUser({ name, mobile, email, password, photo, role});
 
-    // Create token
-    step = 'generateToken';
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'secret', // Fallback for dev
-      { expiresIn: '24h' }
-    );
-
     res.status(201).json({
-      token,
+      message: "Your account is under review. Please wait for admin approval.",
       user
     });
   } catch (error) {
@@ -87,6 +79,14 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid password' });
+    }
+
+    if (user.role !== 'superadmin') {
+      if (user.status === 'pending') {
+        return res.status(403).json({ error: 'Your account is pending approval from admin' });
+      } else if (user.status === 'rejected') {
+        return res.status(403).json({ error: 'Your account has been rejected. Contact admin' });
+      }
     }
 
     // Create token
@@ -184,6 +184,48 @@ router.delete('/users/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Approve user
+router.patch('/users/:id/approve', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const mongoose = require('mongoose');
+    if (req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Access denied. Superadmin privileges required.' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: 'Invalid User ID format' });
+    }
+    const User = require('../models/User');
+    const user = await User.findByIdAndUpdate(id, { status: 'approved' }, { new: true });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'User approved successfully', user: { ...user.toObject(), id: user._id.toString() } });
+  } catch (error) {
+    console.error('Approve user error:', error);
+    res.status(500).json({ error: 'Failed to approve user' });
+  }
+});
+
+// Reject user
+router.patch('/users/:id/reject', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const mongoose = require('mongoose');
+    if (req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Access denied. Superadmin privileges required.' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: 'Invalid User ID format' });
+    }
+    const User = require('../models/User');
+    const user = await User.findByIdAndUpdate(id, { status: 'rejected' }, { new: true });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'User rejected successfully', user: { ...user.toObject(), id: user._id.toString() } });
+  } catch (error) {
+    console.error('Reject user error:', error);
+    res.status(500).json({ error: 'Failed to reject user' });
   }
 });
 

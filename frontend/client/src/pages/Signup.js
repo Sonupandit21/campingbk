@@ -66,10 +66,13 @@ const Signup = () => {
     }
   };
 
+  const [successMsg, setSuccessMsg] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMsg('');
 
     if (formData.mobile.length !== 10) {
       setError('Mobile number must be exactly 10 digits.');
@@ -78,8 +81,11 @@ const Signup = () => {
     }
 
     try {
-      await register(formData);
-      navigate('/');
+      const data = await register(formData);
+      setSuccessMsg(data.message || 'Registration successful. Pending approval.');
+      setLoading(false);
+      // Optional: Navigate to login after 3 seconds
+      setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to register');
       setLoading(false);
@@ -97,6 +103,7 @@ const Signup = () => {
         </div>
 
         {error && <div className="error-message">{error}</div>}
+        {successMsg && <div className="success-message" style={{backgroundColor: '#d1fae5', color: '#065f46', padding: '10px', borderRadius: '4px', marginBottom: '15px', textAlign: 'center'}}>{successMsg}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

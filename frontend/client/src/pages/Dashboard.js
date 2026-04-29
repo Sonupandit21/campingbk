@@ -118,6 +118,44 @@ const Dashboard = () => {
     }
   };
 
+  const handleApproveUser = async (userId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/auth/users/${userId}/approve`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsersList(usersList.map(u => u.id === userId ? data.user : u));
+      } else {
+        const err = await response.json();
+        alert(`Failed to approve: ${err.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to approve user:', error);
+    }
+  };
+
+  const handleRejectUser = async (userId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/auth/users/${userId}/reject`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsersList(usersList.map(u => u.id === userId ? data.user : u));
+      } else {
+        const err = await response.json();
+        alert(`Failed to reject: ${err.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to reject user:', error);
+    }
+  };
+
   const handleEditPublisher = (publisher) => {
     setEditingPublisher(publisher);
     setActiveTab('AddPublisher');
@@ -483,6 +521,7 @@ const Dashboard = () => {
                       <th>Email</th>
                       <th>Mobile</th>
                       <th>Role</th>
+                      <th>Status</th>
                       <th>Joined</th>
                       <th>Action</th>
                     </tr>
@@ -507,14 +546,35 @@ const Dashboard = () => {
                             {u.role ? (u.role.charAt(0).toUpperCase() + u.role.slice(1)) : 'User'}
                           </span>
                         </td>
+                        <td>
+                          <span className={`badge ${u.status === 'approved' ? 'green' : (u.status === 'rejected' ? 'red' : 'orange')}`}>
+                            {u.status ? (u.status.charAt(0).toUpperCase() + u.status.slice(1)) : 'Pending'}
+                          </span>
+                        </td>
                         <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</td>
                         <td>
+                          {user?.role === 'superadmin' && u.status !== 'approved' && (
+                            <button 
+                              onClick={() => handleApproveUser(u.id)}
+                              style={{ border: 'none', background: '#d1fae5', color: '#065f46', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, marginRight: '5px' }}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {user?.role === 'superadmin' && u.status !== 'rejected' && (
+                            <button 
+                              onClick={() => handleRejectUser(u.id)}
+                              style={{ border: 'none', background: '#fee2e2', color: '#ef4444', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, marginRight: '5px' }}
+                            >
+                              Reject
+                            </button>
+                          )}
                           <button 
                             onClick={() => handleDeleteUser(u.id)}
                             style={{
                               border: 'none', 
-                              background: '#fee2e2', 
-                              color: '#ef4444', 
+                              background: '#f3f4f6', 
+                              color: '#4b5563', 
                               padding: '5px 10px', 
                               borderRadius: '4px',
                               cursor: 'pointer',

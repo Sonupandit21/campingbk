@@ -65,10 +65,13 @@ const SuperAdminSignup = () => {
     }
   };
 
+  const [successMsg, setSuccessMsg] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMsg('');
 
     if (formData.mobile.length !== 10) {
       setError('Mobile number must be exactly 10 digits.');
@@ -77,8 +80,10 @@ const SuperAdminSignup = () => {
     }
 
     try {
-      await register(formData);
-      navigate('/dashboard');
+      const data = await register(formData);
+      setSuccessMsg(data.message || 'SuperAdmin registration successful. Pending approval.');
+      setLoading(false);
+      setTimeout(() => navigate('/superadmin/login'), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to register');
       setLoading(false);
@@ -96,6 +101,7 @@ const SuperAdminSignup = () => {
         </div>
 
         {error && <div className="error-message">{error}</div>}
+        {successMsg && <div className="success-message" style={{backgroundColor: '#d1fae5', color: '#065f46', padding: '10px', borderRadius: '4px', marginBottom: '15px', textAlign: 'center'}}>{successMsg}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

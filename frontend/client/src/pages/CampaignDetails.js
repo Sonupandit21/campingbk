@@ -14,6 +14,7 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
     const [approvedSearch, setApprovedSearch] = useState('');
     
     // Tracking Link State
+    const [publisherListType, setPublisherListType] = useState('assigned');
     const [selectedPublisher, setSelectedPublisher] = useState('');
     const [generatedLink, setGeneratedLink] = useState('');
     const [macros, setMacros] = useState({
@@ -88,14 +89,14 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
     };
 
     // Filter publishers for the lists
-    const availablePublishers = publishers.filter(p => !assignedPublishers.includes(p.id));
+    const availablePublishers = publishers.filter(p => !assignedPublishers.some(id => String(id) === String(p.id)));
     
     const filteredPending = availablePublishers.filter(p => 
         p.fullName.toLowerCase().includes(pendingSearch.toLowerCase()) || 
         p.id.toString().includes(pendingSearch)
     );
 
-    const filteredApproved = publishers.filter(p => assignedPublishers.includes(p.id)).filter(p => 
+    const filteredApproved = publishers.filter(p => assignedPublishers.some(id => String(id) === String(p.id))).filter(p => 
         p.fullName.toLowerCase().includes(approvedSearch.toLowerCase()) ||
         p.id.toString().includes(approvedSearch)
     );
@@ -107,7 +108,7 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
     };
 
     const handleUnassign = (pubId) => {
-        const newAssigned = assignedPublishers.filter(id => id !== pubId);
+        const newAssigned = assignedPublishers.filter(id => String(id) !== String(pubId));
         setAssignedPublishers(newAssigned);
         savePermissions(newAssigned);
     };
@@ -370,6 +371,12 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
             return;
         }
 
+        const isPending = !assignedPublishers.some(id => String(id) === String(selectedPublisher));
+        if (isPending) {
+            setGeneratedLink('INSUFFICIENT_PERMISSION');
+            return;
+        }
+
         const pub = publishers.find(p => p.id == selectedPublisher);
         
         // Base Tracking URL
@@ -386,7 +393,7 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
 
         setGeneratedLink(`${trackingBase}?${trackingParams.join('&')}`);
         
-    }, [selectedPublisher, macros, campaign, publishers]);
+    }, [selectedPublisher, macros, campaign, publishers, assignedPublishers]);
 
 
     return (
@@ -469,8 +476,8 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
                     </div>
                     <div className="tracking-content">
                         <div className="radio-group" style={{marginBottom: '1rem'}}>
-                            <label><input type="radio" checked readOnly/> Assigned Publishers</label>
-                            <label style={{color: '#94a3b8'}}><input type="radio" disabled/> Unassigned Publishers</label>
+                            <label><input type="radio" checked={publisherListType === 'assigned'} onChange={() => {setPublisherListType('assigned'); setSelectedPublisher('');}} /> Assigned Publishers</label>
+                            <label style={{color: '#94a3b8'}}><input type="radio" checked={publisherListType === 'unassigned'} onChange={() => {setPublisherListType('unassigned'); setSelectedPublisher('');}} /> Unassigned Publishers</label>
                         </div>
                         
                         <div className="form-group">
@@ -478,11 +485,17 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
                                 className="form-select" 
                                 value={selectedPublisher}
                                 onChange={(e) => setSelectedPublisher(e.target.value)}
+                                disabled={selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))}
                             >
                                 <option value="">Choose any publisher to Generate its tracking Link</option>
-                                {filteredApproved.map(pub => (
+                                {(publisherListType === 'assigned' ? filteredApproved : availablePublishers).map(pub => (
                                     <option key={pub.id} value={pub.id}>{pub.fullName} (ID: {pub.id})</option>
                                 ))}
+                                {selectedPublisher && !(publisherListType === 'assigned' ? filteredApproved : availablePublishers).some(p => String(p.id) === String(selectedPublisher)) && publishers.find(p => String(p.id) === String(selectedPublisher)) && (
+                                    <option value={selectedPublisher} style={{display: 'none'}}>
+                                        {publishers.find(p => String(p.id) === String(selectedPublisher))?.fullName} (ID: {selectedPublisher})
+                                    </option>
+                                )}
                             </select>
                         </div>
 
@@ -492,15 +505,21 @@ const CampaignDetails = ({ campaign, onBack, onUpdate }) => {
                                 className="form-input" 
                                 readOnly 
                                 value={generatedLink}
-                                style={{height: '80px', color: '#334155', background: '#f8fafc'}}
+                                disabled={selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))}
+                                style={{
+                                    height: '80px', 
+                                    color: (selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))) ? '#ef4444' : '#334155', 
+                                    background: '#f8fafc',
+                                    fontWeight: (selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))) ? 'bold' : 'normal'
+                                }}
                             />
                         </div>
 
                         <div className="macros-grid">
-                            <label><input type="checkbox" checked={macros.tracking_source} onChange={(e) => setMacros({...macros, tracking_source: e.target.checked})}/> Add Tracking Source</label>
-                            <label><input type="checkbox" checked={macros.source} onChange={(e) => setMacros({...macros, source: e.target.checked})}/> Add Source (Sub Publisher)</label>
-                            <label><input type="checkbox" checked={macros.deeplink} onChange={(e) => setMacros({...macros, deeplink: e.target.checked})}/> Add DeepLink</label>
-                            <label><input type="checkbox" checked={macros.gaid} onChange={(e) => setMacros({...macros, gaid: e.target.checked})}/> Add GAID</label>
+                            <label><input type="checkbox" disabled={selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))} checked={macros.tracking_source} onChange={(e) => setMacros({...macros, tracking_source: e.target.checked})}/> Add Tracking Source</label>
+                            <label><input type="checkbox" disabled={selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))} checked={macros.source} onChange={(e) => setMacros({...macros, source: e.target.checked})}/> Add Source (Sub Publisher)</label>
+                            <label><input type="checkbox" disabled={selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))} checked={macros.deeplink} onChange={(e) => setMacros({...macros, deeplink: e.target.checked})}/> Add DeepLink</label>
+                            <label><input type="checkbox" disabled={selectedPublisher && !assignedPublishers.some(id => String(id) === String(selectedPublisher))} checked={macros.gaid} onChange={(e) => setMacros({...macros, gaid: e.target.checked})}/> Add GAID</label>
                         </div>
                     </div>
                 </div>

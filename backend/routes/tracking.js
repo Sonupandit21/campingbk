@@ -8,6 +8,40 @@ const { getPostbackConfig } = require('../utils/postbackStore');
 const { getAllPublishers } = require('../utils/publisherStore');
 const { fireTrackierPostback } = require('../utils/trackier');
 
+// Middleware: Publisher Approval-Based Tracking Link Permission System
+const checkPublisherStatus = async (req, res, next) => {
+    try {
+        const { camp_id, publisher_id } = req.query;
+        if (!camp_id || !publisher_id) {
+            return next();
+        }
+        
+        let campaign;
+        if (mongoose.Types.ObjectId.isValid(camp_id)) {
+            campaign = await Campaign.findById(camp_id);
+        }
+        if (!campaign) {
+            const campIdNum = Number(camp_id);
+            if (!isNaN(campIdNum)) {
+                campaign = await Campaign.findOne({ campaignId: campIdNum });
+            }
+        }
+        if (!campaign) {
+            campaign = await Campaign.findOne({ campaignId: camp_id });
+        }
+        
+        if (campaign && (!campaign.assignedPublishers || !campaign.assignedPublishers.some(id => String(id) === String(publisher_id)))) {
+            console.error(`[Permission Denied] Publisher ${publisher_id} is pending/unapproved for campaign ${camp_id}`);
+            return res.status(403).json({ error: "INSUFFICIENT_PERMISSION" });
+        }
+        
+        next();
+    } catch (error) {
+        console.error('Middleware checkPublisherStatus error:', error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
 // Helper to replace macros like {click_id}, {source} with actual values
 const replaceMacros = (url, params) => {
     if (!url) return '';
@@ -593,7 +627,7 @@ const handleTracking = async (req, res) => {
 };
 
 // Tracking and Postback Endpoints
-router.get('/', handleTracking);
-router.get('/conversion', handleConversion); // Dedicated conversion endpoint
+router.get('/', checkPublisherStatus, handleTracking);
+router.get('/conversion', checkPublisherStatus, handleConversion); // Dedicated conversion endpoint
 
 module.exports = router;

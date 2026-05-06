@@ -21,10 +21,8 @@ mongoose
 // -----------------------------
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://trackierpanel.com',
-  'https://www.trackierpanel.com',
-  'http://localhost:3000',
-  'http://localhost:5173',
+  'https://smart.trackyfly.com',
+  
 ].filter(Boolean);
 
 const corsOptions = {

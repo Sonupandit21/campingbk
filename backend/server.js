@@ -22,14 +22,19 @@ mongoose
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://smart.trackyfly.com',
-  
-].filter(Boolean);
+  'http://smart.trackyfly.com',
+  'https://www.smart.trackyfly.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+].filter(Boolean).map(o => o.replace(/\/$/, ''));
 
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
 

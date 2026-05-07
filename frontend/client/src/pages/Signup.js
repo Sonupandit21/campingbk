@@ -97,7 +97,7 @@ const Signup = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <span style={{ color: '#4f46e5' }}>✦</span> Campaigns trackier
+            <span style={{ color: '#4f46e5' }}>✦</span> Smart Trackyfly
           </div>
           <p className="auth-title">Create Account</p>
         </div>

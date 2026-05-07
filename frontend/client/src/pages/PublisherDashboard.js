@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import './PublisherDashboard.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://trackierpanel.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://smarttrackyfly.com';
 
 const PublisherDashboard = () => {
   const navigate = useNavigate();
@@ -294,7 +294,7 @@ const PublisherDashboard = () => {
           <div className="logo-icon">
             <Activity size={22} color="white" />
           </div>
-          <span className="logo-text">Trackier Panel</span>
+          <span className="logo-text">Smart Trackyfly</span>
         </div>
         
         <nav className="pub-nav">

@@ -95,7 +95,8 @@ const SuperAdminSignup = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <span style={{ color: '#ef4444' }}>⚡</span> Super Admin Registration
+            <img src="/logo.png" alt="Smart Trackyfly" className="logo-icon" />
+            Super Admin Registration
           </div>
           <p className="auth-title">Create Master Account</p>
         </div>

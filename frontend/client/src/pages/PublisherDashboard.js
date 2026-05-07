@@ -292,7 +292,7 @@ const PublisherDashboard = () => {
       <aside className={`pub-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
         <div className="pub-sidebar-logo">
           <div className="logo-icon">
-            <Activity size={22} color="white" />
+            <img src="/logo.png" alt="Logo" />
           </div>
           <span className="logo-text">Smart Trackyfly</span>
         </div>

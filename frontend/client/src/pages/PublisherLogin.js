@@ -42,7 +42,8 @@ const PublisherLogin = () => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <span style={{ color: '#4f46e5' }}>✦</span> Campaigns Publisher
+            <img src="/logo.png" alt="Smart Trackyfly" className="logo-icon" />
+            Campaigns Publisher
           </div>
           <p className="auth-title">Welcome Back!</p>
         </div>

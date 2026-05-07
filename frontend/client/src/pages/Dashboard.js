@@ -268,7 +268,9 @@ const Dashboard = () => {
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? '' : 'collapsed'} ${isMobileOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
-          <div className="logo-icon">{user?.role === 'superadmin' ? '🛡️' : '✦'}</div>
+          <div className="logo-icon">
+            <img src="/logo.png" alt="Logo" />
+          </div>
           <span className="logo-text">{user?.role === 'superadmin' ? 'Super Admin' : 'Campaign Admin'}</span>
         </div>
         

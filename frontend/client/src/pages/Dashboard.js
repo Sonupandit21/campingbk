@@ -11,6 +11,8 @@ import EditProfile from './EditProfile';
 import GlobalPostback from './GlobalPostback';
 import ManageCampaigns from './ManageCampaigns';
 import Reports from './Reports';
+import PostbackPixelsList from './PostbackPixelsList';
+import AddPostback from './AddPostback';
 
 
 
@@ -32,6 +34,7 @@ const Dashboard = () => {
   const [topPerformers, setTopPerformers] = useState([]);
   const [weeklyStats, setWeeklyStats] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [topSales, setTopSales] = useState({ name: 'No Data', count: 0 });
+  const [editingPostback, setEditingPostback] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -228,7 +231,51 @@ const Dashboard = () => {
 
 
 
-  // ... (existing code)
+  const handleSavePostback = async (postbackData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+      };
+
+      if (editingPostback) {
+        // Update
+        const response = await fetch(`${BACKEND_URL}/api/postbacks/${editingPostback.id}`, {
+          method: 'PUT',
+          headers: headers,
+          body: JSON.stringify(postbackData)
+        });
+        if (response.ok) {
+           setActiveTab('PostbackPixels');
+        } else {
+            const errorData = await response.json();
+            alert(`Failed to update postback: ${errorData.error || 'Unknown error'}`);
+        }
+      } else {
+        // Add
+        const response = await fetch(`${BACKEND_URL}/api/postbacks`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(postbackData)
+        });
+        if (response.ok) {
+           setActiveTab('PostbackPixels');
+        } else {
+            const errorData = await response.json();
+            alert(`Failed to create postback: ${errorData.error || 'Unknown error'}`);
+        }
+      }
+      setEditingPostback(null);
+    } catch (error) {
+      console.error('Failed to save postback:', error);
+    }
+  };
+
+  const handleEditPostback = (postback) => {
+    setEditingPostback(postback);
+    setActiveTab('AddPostback');
+  };
 
   const handleLoginAs = async (publisher) => {
     try {
@@ -289,6 +336,11 @@ const Dashboard = () => {
           <a href="#" className={`nav-item ${activeTab === 'ManagePublishers' || activeTab === 'AddPublisher' ? 'active' : ''}`} onClick={() => { setActiveTab('ManagePublishers'); setEditingPublisher(null); }}>
             <span className="icon">👥</span> <span className="label">Manage</span>        
           </a>
+          {user?.role === 'superadmin' && (
+            <a href="#" className={`nav-item ${activeTab === 'PostbackPixels' || activeTab === 'AddPostback' ? 'active' : ''}`} onClick={() => { setActiveTab('PostbackPixels'); setEditingPostback(null); }}>
+              <span className="icon">🔗</span> <span className="label">Postback & Pixels</span>
+            </a>
+          )}
 
           <div className="nav-section">REPORTS</div>
           <a href="#" className={`nav-item ${activeTab === 'Reports' ? 'active' : ''}`} onClick={() => setActiveTab('Reports')}><span className="icon">📄</span> <span className="label">Reports</span></a>
@@ -618,6 +670,21 @@ const Dashboard = () => {
           {activeTab === 'Reports' && (
              <Reports />
           )}
+
+          {activeTab === 'PostbackPixels' && user?.role === 'superadmin' && (
+            <PostbackPixelsList 
+              onAdd={() => { setEditingPostback(null); setActiveTab('AddPostback'); }}
+              onEdit={handleEditPostback}
+            />
+          )}
+
+          {activeTab === 'AddPostback' && user?.role === 'superadmin' && (
+            <AddPostback 
+              initialData={editingPostback}
+              onSave={handleSavePostback}
+              onCancel={() => { setEditingPostback(null); setActiveTab('PostbackPixels'); }}
+            />
+          )}
         </div>
       </main>
     </div>
@@ -625,3 +692,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

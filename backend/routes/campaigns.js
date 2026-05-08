@@ -19,6 +19,13 @@ router.get('/', auth, async (req, res) => {
         query = {}; // All campaigns
     }
 
+    const { publisher_id } = req.query;
+    if (publisher_id) {
+        // Filter campaigns where assignedPublishers contains the publisher_id
+        // We check for both string and numeric matching if needed, but assignedPublishers is [String]
+        query.assignedPublishers = { $in: [publisher_id.toString()] };
+    }
+
     const campaigns = await Campaign.find(query).sort({ campaignId: -1 });
     
     const formatted = campaigns.map(c => ({
@@ -236,4 +243,5 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+module.exports = router;
 module.exports = router;

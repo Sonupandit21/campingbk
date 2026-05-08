@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://smarttrackyfly.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://smart.trackyfly.com';
 
 const GlobalPostback = () => {
     const [url, setUrl] = useState('');

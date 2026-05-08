@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://smarttrackyfly.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://smart.trackyfly.com';
 
 
 const AuthContext = createContext(null);

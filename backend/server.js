@@ -65,6 +65,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/publishers', require('./routes/publishers'));
 app.use('/api/postback', require('./routes/postback'));
+app.use('/api/postbacks', require('./routes/postbacks'));
 app.use('/api/track', require('./routes/tracking'));
 app.use('/tracking', require('./routes/tracking'));
 app.use('/api/campaigns', require('./routes/campaigns'));

@@ -13,8 +13,8 @@ async function getAllPublishers() {
 // Create new publisher
 async function createPublisher(publisherData) {
   // Auto-increment logic
-  // Ignore legacy IDs (>= 10000) when finding the last used ID
-  const lastPublisher = await Publisher.findOne({ publisherId: { $lt: 10000 } }).sort({ publisherId: -1 });
+  // Find the absolute maximum publisherId to ensure nextId is always unique
+  const lastPublisher = await Publisher.findOne().sort({ publisherId: -1 });
   const nextId = lastPublisher && lastPublisher.publisherId ? lastPublisher.publisherId + 1 : 1;
 
   // Auto-generate password if missing

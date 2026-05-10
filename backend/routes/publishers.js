@@ -58,6 +58,19 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(publisher);
   } catch (error) {
     console.error('Create publisher error:', error);
+    
+    // Handle MongoDB duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0];
+      if (field === 'email') {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+      if (field === 'publisherId') {
+        return res.status(400).json({ error: 'Publisher ID collision' });
+      }
+      return res.status(400).json({ error: `${field} already exists` });
+    }
+
     res.status(500).json({ error: 'Failed to create publisher' });
   }
 });

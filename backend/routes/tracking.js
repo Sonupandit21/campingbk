@@ -394,11 +394,35 @@ const handleConversion = async (req, res) => {
 
         // Calculate dynamic publisher payout if rules exist
         if (campaign && campaign.payouts && campaign.payouts.length > 0) {
-            const rule = campaign.payouts.find(r => {
-                const pubMatch = r.publisherId === String(publisher_id);
-                const goalMatch = r.goalName.toLowerCase().trim() === finalGoalName.toLowerCase().trim();
-                return pubMatch && goalMatch;
-            });
+            // Priority matching: 
+            // 1. Specific Pub + Specific Goal
+            // 2. Specific Pub + Gross Conversions
+            // 3. All Pubs + Specific Goal
+            // 4. All Pubs + Gross Conversions
+            
+            const findRule = (pubId, goal) => {
+                const rules = campaign.payouts;
+                const targetGoal = goal.toLowerCase().trim();
+                const isGross = targetGoal === 'gross conversions' || targetGoal === '';
+
+                // Try 1: Specific Pub + Specific Goal
+                let rule = rules.find(r => String(r.publisherId) === String(pubId) && r.goalName.toLowerCase().trim() === targetGoal && !isGross);
+                if (rule) return rule;
+
+                // Try 2: Specific Pub + Gross Conversions
+                rule = rules.find(r => String(r.publisherId) === String(pubId) && (r.goalName.toLowerCase().trim() === 'gross conversions' || r.goalName === ''));
+                if (rule) return rule;
+
+                // Try 3: All Pubs + Specific Goal
+                rule = rules.find(r => (!r.publisherId || r.publisherId === '') && r.goalName.toLowerCase().trim() === targetGoal && !isGross);
+                if (rule) return rule;
+
+                // Try 4: All Pubs + Gross Conversions
+                rule = rules.find(r => (!r.publisherId || r.publisherId === '') && (r.goalName.toLowerCase().trim() === 'gross conversions' || r.goalName === ''));
+                return rule;
+            };
+
+            const rule = findRule(publisher_id, finalGoalName);
 
             if (rule) {
                 if (rule.payoutType === 'fixed') {

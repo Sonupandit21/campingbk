@@ -27,16 +27,17 @@ const AddPayoutModal = ({ isOpen, onClose, onSave, publishers, initialData = nul
     if (!isOpen) return null;
 
     const handleSubmit = () => {
-        if (!formData.publisherId || !formData.payoutValue || !formData.goalName) {
+        if (!formData.payoutValue || !formData.goalName) {
             alert('Please fill in all required fields');
             return;
         }
 
         const selectedPublisher = publishers.find(p => p.id.toString() === formData.publisherId.toString());
+        const publisherName = selectedPublisher ? selectedPublisher.fullName : (formData.publisherId ? 'Unknown' : 'All Publishers');
 
         onSave({
             ...formData,
-            publisherName: selectedPublisher ? selectedPublisher.fullName : 'Unknown',
+            publisherName: publisherName,
             payoutValue: Number(formData.payoutValue)
         });
         onClose();
@@ -51,14 +52,14 @@ const AddPayoutModal = ({ isOpen, onClose, onSave, publishers, initialData = nul
                 </div>
                 <div className="modal-body">
                     <div className="form-group">
-                        <label>Publisher <span className="red">*</span></label>
+                        <label>Publisher (Optional - Leave blank for All Publishers)</label>
                         <select 
                             className="form-select"
                             value={formData.publisherId}
                             onChange={e => setFormData({...formData, publisherId: e.target.value})}
                             disabled={!!initialData} 
                         >
-                            <option value="">Choose any Publisher</option>
+                            <option value="">All Publishers (Global Default)</option>
                             {publishers.map(pub => (
                                 <option key={pub.id} value={pub.id}>{pub.fullName} (ID: {pub.id})</option>
                             ))}

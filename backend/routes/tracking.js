@@ -402,24 +402,42 @@ const handleConversion = async (req, res) => {
             
             const findRule = (pubId, goal) => {
                 const rules = campaign.payouts;
-                const targetGoal = goal.toLowerCase().trim();
+                const targetGoal = (goal || '').toLowerCase().trim();
                 const isGross = targetGoal === 'gross conversions' || targetGoal === '';
 
+                console.log(`[PayoutMatch] Checking Goal: ${targetGoal}, Pub: ${pubId}, isGross: ${isGross}`);
+                console.log(`[PayoutMatch] Rules available: ${rules.length}`);
+
                 // Try 1: Specific Pub + Specific Goal
-                let rule = rules.find(r => String(r.publisherId) === String(pubId) && r.goalName.toLowerCase().trim() === targetGoal && !isGross);
-                if (rule) return rule;
+                let rule = rules.find(r => {
+                    const rGoal = (r.goalName || '').toLowerCase().trim();
+                    return String(r.publisherId) === String(pubId) && rGoal === targetGoal && !isGross;
+                });
+                if (rule) { console.log('[PayoutMatch] Matched Try 1'); return rule; }
 
                 // Try 2: Specific Pub + Gross Conversions
-                rule = rules.find(r => String(r.publisherId) === String(pubId) && (r.goalName.toLowerCase().trim() === 'gross conversions' || r.goalName === ''));
-                if (rule) return rule;
+                rule = rules.find(r => {
+                    const rGoal = (r.goalName || '').toLowerCase().trim();
+                    return String(r.publisherId) === String(pubId) && (rGoal === 'gross conversions' || rGoal === '');
+                });
+                if (rule) { console.log('[PayoutMatch] Matched Try 2'); return rule; }
 
                 // Try 3: All Pubs + Specific Goal
-                rule = rules.find(r => (!r.publisherId || r.publisherId === '') && r.goalName.toLowerCase().trim() === targetGoal && !isGross);
-                if (rule) return rule;
+                rule = rules.find(r => {
+                    const rGoal = (r.goalName || '').toLowerCase().trim();
+                    return (!r.publisherId || r.publisherId === '') && rGoal === targetGoal && !isGross;
+                });
+                if (rule) { console.log('[PayoutMatch] Matched Try 3'); return rule; }
 
                 // Try 4: All Pubs + Gross Conversions
-                rule = rules.find(r => (!r.publisherId || r.publisherId === '') && (r.goalName.toLowerCase().trim() === 'gross conversions' || r.goalName === ''));
-                return rule;
+                rule = rules.find(r => {
+                    const rGoal = (r.goalName || '').toLowerCase().trim();
+                    return (!r.publisherId || r.publisherId === '') && (rGoal === 'gross conversions' || rGoal === '');
+                });
+                if (rule) { console.log('[PayoutMatch] Matched Try 4'); return rule; }
+
+                console.log('[PayoutMatch] No rule matched');
+                return null;
             };
 
             const rule = findRule(publisher_id, finalGoalName);

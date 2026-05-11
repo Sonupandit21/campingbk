@@ -57,10 +57,29 @@ router.get('/', auth, async (req, res) => {
             }
         } else {
             // SUPERADMIN: No global data restriction.
-            if (campaignId) {
+            const { createdBy } = req.query;
+
+            if (createdBy) {
+                // Find campaigns created by this user
+                const userCampaigns = await Campaign.find({ created_by: createdBy }).select('campaignId');
+                const userCampIds = userCampaigns.filter(c => c.campaignId != null).map(c => c.campaignId.toString());
+                
+                if (campaignId) {
+                    // If specific campaign selected, check if it belongs to the user
+                    if (userCampIds.includes(campaignId.toString())) {
+                        match.camp_id = campaignId;
+                    } else {
+                        return res.json([]); // Mismatch
+                    }
+                } else {
+                    // Match any of the user's campaigns
+                    if (userCampIds.length === 0) return res.json([]);
+                    match.camp_id = { $in: userCampIds };
+                }
+            } else if (campaignId) {
                 match.camp_id = campaignId;
             }
-            // If no campaignId, we don't add camp_id to match, showing ALL campaigns.
+            // If no campaignId and no createdBy, we don't add camp_id to match, showing ALL campaigns.
         }
 
         // Optional: Filter by specific publisher if Admin/SuperAdmin requests it
@@ -264,7 +283,7 @@ router.get('/', auth, async (req, res) => {
     
     const campaigns = await Campaign.find({
         campaignId: { $in: numericCampIds } 
-    }).select('campaignId title defaultGoalName');
+    }).select('campaignId title defaultGoalName created_by').populate('created_by', 'name');
 
     const publishers = await Publisher.find({
         publisherId: { $in: distinctPubIds }
@@ -274,7 +293,8 @@ router.get('/', auth, async (req, res) => {
     campaigns.forEach(c => {
         campMap[c.campaignId] = { 
             title: c.title, 
-            goalName: c.defaultGoalName
+            goalName: c.defaultGoalName,
+            adminName: c.created_by ? c.created_by.name : 'System'
         };
     });
 
@@ -293,6 +313,7 @@ router.get('/', auth, async (req, res) => {
             ...row,
             clicks: nonSampledClicks, // Override clicks to exclude sampled clicks
             campaignName: camp.title || `Unknown (${row.camp_id})`,
+            adminName: camp.adminName || 'N/A',
             goalName: row.goal_name || camp.goalName || 'N/A', // Prefer actual goal name from conversion
             publisherName: pubMap[row.publisher_id] || `Unknown (${row.publisher_id})`,
             cr: nonSampledClicks > 0 ? ((row.conversions / nonSampledClicks) * 100).toFixed(2) : 0,

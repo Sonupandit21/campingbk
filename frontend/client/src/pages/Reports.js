@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 import './Reports.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://smart.trackyfly.com';
 
 const Reports = () => {
+    const { user } = useAuth();
     const [filters, setFilters] = useState({
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
         campaignId: '',
-        publisherId: ''
+        publisherId: '',
+        createdBy: ''
     });
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [campaigns, setCampaigns] = useState([]);
     const [publishers, setPublishers] = useState([]);
+    const [admins, setAdmins] = useState([]);
     const [totals, setTotals] = useState({ gross_clicks: 0, clicks: 0, unique_clicks: 0, sampled_clicks: 0, conversions: 0, gross_conversions: 0, sampled_conversions: 0, payout: 0 });
     
     // New Feature States
@@ -24,6 +28,7 @@ const Reports = () => {
         date: true,
         campaignId: true,
         campaignName: true,
+        adminName: user?.role === 'superadmin',
         goalName: true,
         publisherId: true,
         publisherName: true,
@@ -67,6 +72,14 @@ const Reports = () => {
             ]);
             if (campRes.ok) setCampaigns(await campRes.json());
             if (pubRes.ok) setPublishers(await pubRes.json());
+
+            if (user?.role === 'superadmin') {
+                const userRes = await fetch(`${BACKEND_URL}/api/auth/users`, { headers });
+                if (userRes.ok) {
+                    const users = await userRes.json();
+                    setAdmins(users.filter(u => u.role === 'admin' || u.role === 'superadmin'));
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch filter options:', error);
         }
@@ -78,6 +91,7 @@ const Reports = () => {
             const params = new URLSearchParams(filters);
             if (!filters.campaignId) params.delete('campaignId');
             if (!filters.publisherId) params.delete('publisherId');
+            if (!filters.createdBy) params.delete('createdBy');
 
             const token = localStorage.getItem('token');
             const response = await fetch(`${BACKEND_URL}/api/reports?${params.toString()}`, {
@@ -144,6 +158,7 @@ const Reports = () => {
             if (visibleColumns.date) exportRow['Date'] = row.date;
             if (visibleColumns.campaignId) exportRow['Camp ID'] = row.camp_id;
             if (visibleColumns.campaignName) exportRow['Campaign'] = row.campaignName;
+            if (visibleColumns.adminName) exportRow['Admin'] = row.adminName;
             if (visibleColumns.goalName) exportRow['Goal Name'] = row.goalName;
             if (visibleColumns.publisherId) exportRow['Pub ID'] = row.publisher_id;
             if (visibleColumns.publisherName) exportRow['Publisher'] = row.publisherName;
@@ -214,6 +229,7 @@ const Reports = () => {
                         source: visibleColumns.source ? row.source : '', 
                         camp_id: visibleColumns.campaignId ? row.camp_id : 'All',
                         campaignName: visibleColumns.campaignId ? row.campaignName : 'All Campaigns',
+                        adminName: visibleColumns.campaignId ? row.adminName : 'All',
                         publisher_id: visibleColumns.publisherId ? row.publisher_id : 'All',
                         publisherName: visibleColumns.publisherId ? row.publisherName : 'All Publishers',
                         gross_clicks: 0,
@@ -310,6 +326,17 @@ const Reports = () => {
                             ))}
                         </select>
                     </div>
+                    {user?.role === 'superadmin' && (
+                        <div className="filter-group">
+                            <label>User (Admin)</label>
+                            <select name="createdBy" value={filters.createdBy} onChange={handleFilterChange}>
+                                <option value="">All Users</option>
+                                {admins.map(a => (
+                                    <option key={a.id} value={a.id}>{a.name || a.username}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <button className="run-btn" onClick={handleRunReport} style={{ marginRight: '10px' }}>
                         {loading ? 'Running...' : 'Run Report'}
                     </button>
@@ -415,6 +442,7 @@ const Reports = () => {
                                                 style={{ accentColor: '#3b82f6' }}
                                             />
                                              {col === 'campaignName' ? 'Campaign' : 
+                                             col === 'adminName' ? 'Admin' :
                                              col === 'goalName' ? 'Goal Name' :
                                              col === 'source' ? 'Source' :
                                              col === 'publisherName' ? 'Publisher' :
@@ -477,6 +505,7 @@ const Reports = () => {
                             {visibleColumns.date && <th onClick={() => handleSort('date')} style={{cursor: 'pointer'}}>Date {sortConfig.key==='date' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.campaignId && <th onClick={() => handleSort('camp_id')} style={{cursor: 'pointer'}}>Camp ID {sortConfig.key==='camp_id' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.campaignName && <th onClick={() => handleSort('campaignName')} style={{cursor: 'pointer'}}>Campaign {sortConfig.key==='campaignName' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
+                            {visibleColumns.adminName && <th onClick={() => handleSort('adminName')} style={{cursor: 'pointer'}}>Admin {sortConfig.key==='adminName' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.goalName && <th onClick={() => handleSort('goalName')} style={{cursor: 'pointer'}}>Goal Name {sortConfig.key==='goalName' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.publisherId && <th onClick={() => handleSort('publisher_id')} style={{cursor: 'pointer'}}>Pub ID {sortConfig.key==='publisher_id' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
                             {visibleColumns.publisherName && <th onClick={() => handleSort('publisherName')} style={{cursor: 'pointer'}}>Publisher {sortConfig.key==='publisherName' && (sortConfig.direction==='asc'?'↑':'↓')}</th>}
@@ -504,6 +533,7 @@ const Reports = () => {
                                     {visibleColumns.date && <td>{row.date}</td>}
                                     {visibleColumns.campaignId && <td>{row.camp_id}</td>}
                                     {visibleColumns.campaignName && <td>{row.campaignName}</td>}
+                                    {visibleColumns.adminName && <td>{row.adminName}</td>}
                                     {visibleColumns.goalName && <td>{row.goalName}</td>}
                                     {visibleColumns.publisherId && <td>{row.publisher_id}</td>}
                                     {visibleColumns.publisherName && <td>{row.publisherName}</td>}
@@ -528,6 +558,7 @@ const Reports = () => {
                                 {visibleColumns.date && <td>TOTAL</td>}
                                 {visibleColumns.campaignId && <td>-</td>}
                                 {visibleColumns.campaignName && <td>-</td>}
+                                {visibleColumns.adminName && <td>-</td>}
                                 {visibleColumns.goalName && <td>-</td>}
                                 {visibleColumns.publisherId && <td>-</td>}
                                 {visibleColumns.publisherName && <td>-</td>}

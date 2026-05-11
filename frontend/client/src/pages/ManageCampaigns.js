@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import CampaignDetails from './CampaignDetails';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://smart.trackyfly.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 const ManageCampaigns = () => {
     const [campaigns, setCampaigns] = useState([]);
@@ -16,14 +16,14 @@ const ManageCampaigns = () => {
     const fetchCampaigns = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${BACKEND_URL}/api/campaigns`, {
+            const url = BACKEND_URL ? `${BACKEND_URL}/api/campaigns` : '/api/campaigns';
+            const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
                 const data = await response.json();
                 setCampaigns(data);
                 
-                // Update selectedCampaign if it exists to reflect changes
                 if (selectedCampaign) {
                     const updated = data.find(c => c.id === selectedCampaign.id);
                     if (updated) setSelectedCampaign(updated);
@@ -40,7 +40,8 @@ const ManageCampaigns = () => {
         if (window.confirm('Are you sure you want to delete this campaign?')) {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`${BACKEND_URL}/api/campaigns/${id}`, {
+                const url = BACKEND_URL ? `${BACKEND_URL}/api/campaigns/${id}` : `/api/campaigns/${id}`;
+                const response = await fetch(url, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -59,30 +60,44 @@ const ManageCampaigns = () => {
     const approvePublisher = async (campaignId, publisherId) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${BACKEND_URL}/api/admin/campaigns/${campaignId}/approve/${publisherId}`, {
+            const url = BACKEND_URL ? `${BACKEND_URL}/api/admin/campaigns/${campaignId}/approve/${publisherId}` : `/api/admin/campaigns/${campaignId}/approve/${publisherId}`;
+            console.log('Sending approve request:', url);
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
-                fetchCampaigns();
+                alert('Publisher approved successfully!');
+                window.location.reload(); // Force reload to ensure everything is in sync
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                alert(`Approve failed: ${errData.error || response.statusText}`);
             }
         } catch (err) {
             console.error('Approve error:', err);
+            alert('Approve error: ' + err.message);
         }
     };
 
     const rejectPublisher = async (campaignId, publisherId) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${BACKEND_URL}/api/admin/campaigns/${campaignId}/reject/${publisherId}`, {
+            const url = BACKEND_URL ? `${BACKEND_URL}/api/admin/campaigns/${campaignId}/reject/${publisherId}` : `/api/admin/campaigns/${campaignId}/reject/${publisherId}`;
+            console.log('Sending reject request:', url);
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
-                fetchCampaigns();
+                alert('Publisher rejected successfully!');
+                window.location.reload();
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                alert(`Reject failed: ${errData.error || response.statusText}`);
             }
         } catch (err) {
             console.error('Reject error:', err);
+            alert('Reject error: ' + err.message);
         }
     };
 

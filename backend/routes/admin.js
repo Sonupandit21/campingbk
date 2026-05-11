@@ -6,75 +6,98 @@ const Campaign = require('../models/Campaign');
 // POST Approve publisher for a campaign
 router.post('/campaigns/:campaignId/approve/:publisherId', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+    const { campaignId, publisherId } = req.params;
+    console.log(`Approving Campaign: ${campaignId}, Publisher: ${publisherId}`);
+
+    if (req.user.role === 'publisher') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const { campaignId, publisherId } = req.params;
-    
     const campaign = await Campaign.findOne({ campaignId: Number(campaignId) });
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    const approval = campaign.publisherApprovals.find(
-      a => a.publisher && a.publisher.toString() === publisherId
-    );
+    if (!campaign.publisherApprovals) campaign.publisherApprovals = [];
+    if (!campaign.assignedPublishers) campaign.assignedPublishers = [];
 
-    if (!approval) {
-      // If no request exists, we create one as approved
+    // Update or create approval record
+    let found = false;
+    campaign.publisherApprovals.forEach(a => {
+      if (a.publisher && a.publisher.toString() === publisherId.toString()) {
+        a.status = 'approved';
+        a.approvedBy = req.user.id;
+        a.approvedAt = new Date();
+        found = true;
+      }
+    });
+
+    if (!found) {
       campaign.publisherApprovals.push({
         publisher: publisherId,
         status: 'approved',
         approvedBy: req.user.id,
         approvedAt: new Date()
       });
-    } else {
-      approval.status = 'approved';
-      approval.approvedBy = req.user.id;
-      approval.approvedAt = new Date();
     }
 
+    // Also add to assignedPublishers for double insurance and legacy compatibility
+    if (!campaign.assignedPublishers.includes(publisherId.toString())) {
+      campaign.assignedPublishers.push(publisherId.toString());
+    }
+
+    campaign.markModified('publisherApprovals');
+    campaign.markModified('assignedPublishers');
+    
     await campaign.save();
     res.json({ success: true, message: 'Publisher approved' });
   } catch (error) {
-    console.error('Approve publisher error:', error);
-    res.status(500).json({ error: 'Failed to approve publisher' });
+    console.error('Approve error:', error);
+    res.status(500).json({ error: 'Failed to approve: ' + error.message });
   }
 });
 
 // POST Reject publisher for a campaign
 router.post('/campaigns/:campaignId/reject/:publisherId', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+    const { campaignId, publisherId } = req.params;
+    
+    if (req.user.role === 'publisher') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const { campaignId, publisherId } = req.params;
-    
     const campaign = await Campaign.findOne({ campaignId: Number(campaignId) });
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    const approval = campaign.publisherApprovals.find(
-      a => a.publisher && a.publisher.toString() === publisherId
-    );
+    if (!campaign.publisherApprovals) campaign.publisherApprovals = [];
+    
+    let found = false;
+    campaign.publisherApprovals.forEach(a => {
+      if (a.publisher && a.publisher.toString() === publisherId.toString()) {
+        a.status = 'rejected';
+        found = true;
+      }
+    });
 
-    if (!approval) {
-        campaign.publisherApprovals.push({
-            publisher: publisherId,
-            status: 'rejected'
-        });
-    } else {
-      approval.status = 'rejected';
+    if (!found) {
+      campaign.publisherApprovals.push({
+        publisher: publisherId,
+        status: 'rejected'
+      });
     }
 
+    // Remove from assignedPublishers if rejected
+    campaign.assignedPublishers = campaign.assignedPublishers.filter(id => id.toString() !== publisherId.toString());
+
+    campaign.markModified('publisherApprovals');
+    campaign.markModified('assignedPublishers');
     await campaign.save();
     res.json({ success: true, message: 'Publisher rejected' });
   } catch (error) {
-    console.error('Reject publisher error:', error);
-    res.status(500).json({ error: 'Failed to reject publisher' });
+    console.error('Reject error:', error);
+    res.status(500).json({ error: 'Failed to reject: ' + error.message });
   }
 });
 

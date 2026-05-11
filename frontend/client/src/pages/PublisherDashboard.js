@@ -42,7 +42,7 @@ const PublisherDashboard = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [startDate, setStartDate] = useState(getPastDate(7));
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);

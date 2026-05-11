@@ -6,7 +6,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_B
 
 const Reports = () => {
     const [filters, setFilters] = useState({
-        startDate: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0], // Last 7 days
+        startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
         campaignId: '',
         publisherId: ''

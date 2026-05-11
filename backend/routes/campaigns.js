@@ -40,6 +40,87 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// GET all campaigns for publisher with approval status
+router.get('/publisher/all-campaigns', auth, async (req, res) => {
+  try {
+    const Campaign = require('../models/Campaign');
+    const Publisher = require('../models/Publisher');
+    
+    // Find the publisher to know who created them
+    const publisher = await Publisher.findOne({ publisherId: req.user.id });
+    
+    let query = { status: 'Active' };
+    if (publisher && publisher.created_by) {
+        query.created_by = publisher.created_by;
+    }
+    
+    // Fetch campaigns
+    const campaigns = await Campaign.find(query).sort({ createdAt: -1 });
+    
+    const formatted = campaigns.map(c => {
+      const approval = c.publisherApprovals?.find(
+        a => a.publisher && a.publisher.toString() === req.user.id
+      );
+      
+      return {
+        ...c.toObject(),
+        id: c.campaignId,
+        approvalStatus: approval ? approval.status : 'none',
+        // Also check if the publisher is explicitly assigned (legacy compatibility)
+        isAssigned: c.assignedPublishers?.includes(req.user.id)
+      };
+    });
+    
+    res.json(formatted);
+  } catch (error) {
+    console.error('Get publisher campaigns error:', error);
+    res.status(500).json({ error: 'Failed to fetch publisher campaigns' });
+  }
+});
+
+// POST request approval for a campaign
+router.post('/:id/request-approval', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Campaign = require('../models/Campaign');
+    const mongoose = require('mongoose');
+    
+    let campaign;
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    if (!isObjectId && !isNaN(id)) {
+      campaign = await Campaign.findOne({ campaignId: Number(id) });
+    } else if (isObjectId) {
+      campaign = await Campaign.findById(id);
+    }
+    
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+    
+    // Check if already requested
+    const existingApproval = campaign.publisherApprovals?.find(
+      a => a.publisher && a.publisher.toString() === req.user.id
+    );
+    
+    if (existingApproval) {
+      return res.status(400).json({ error: 'Approval already requested or decided' });
+    }
+    
+    // Add pending approval
+    campaign.publisherApprovals.push({
+      publisher: req.user.id,
+      status: 'pending'
+    });
+    
+    await campaign.save();
+    
+    res.json({ success: true, message: 'Approval request submitted' });
+  } catch (error) {
+    console.error('Request approval error:', error);
+    res.status(500).json({ error: 'Failed to submit approval request' });
+  }
+});
+
 // Get campaign details with stats
 router.get('/:id', auth, async (req, res) => {
   try {

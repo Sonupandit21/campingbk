@@ -60,7 +60,24 @@ const campaignSchema = new mongoose.Schema({
     goalName: { type: String, default: 'Gross Conversions' },
     payoutType: { type: String, enum: ['fixed', 'percentage'], default: 'fixed' },
     payoutValue: Number
-  }]
+  }],
+  publisherApprovals: [
+    {
+      publisher: {
+        type: String // Using String to match numeric/string publisherId
+      },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      approvedAt: Date
+    }
+  ]
 }, {
   timestamps: true
 });

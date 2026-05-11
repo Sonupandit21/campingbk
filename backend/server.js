@@ -72,6 +72,8 @@ app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/utils', require('./routes/utils'));
+app.use('/api/admin', require('./routes/admin'));
+
 
 // -----------------------------
 // Health Check Route

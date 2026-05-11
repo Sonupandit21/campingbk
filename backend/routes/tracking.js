@@ -30,9 +30,16 @@ const checkPublisherStatus = async (req, res, next) => {
             campaign = await Campaign.findOne({ campaignId: camp_id });
         }
         
-        if (campaign && (!campaign.assignedPublishers || !campaign.assignedPublishers.some(id => String(id) === String(publisher_id)))) {
+        const isAssigned = campaign.assignedPublishers?.some(id => String(id) === String(publisher_id));
+        const approval = campaign.publisherApprovals?.find(a => String(a.publisher) === String(publisher_id));
+        const isApproved = approval?.status === 'approved';
+
+        if (campaign && !isAssigned && !isApproved) {
             console.error(`[Permission Denied] Publisher ${publisher_id} is pending/unapproved for campaign ${camp_id}`);
-            return res.status(403).json({ error: "INSUFFICIENT_PERMISSION" });
+            return res.status(403).json({ 
+                success: false, 
+                message: "INSUFFICIENT_PERMISSION" 
+            });
         }
         
         next();

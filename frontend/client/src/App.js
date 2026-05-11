@@ -8,7 +8,9 @@ import SuperAdminSignup from './pages/SuperAdminSignup';
 import Signup from './pages/Signup';
 import CreateCampaign from './pages/CreateCampaign';
 import PublisherDashboard from './pages/PublisherDashboard';
+import AllCampaigns from './pages/publisher/AllCampaigns';
 import { AuthProvider, useAuth } from './context/AuthContext';
+
 import './App.css';
 
 // Publisher Protected Route
@@ -72,6 +74,12 @@ function App() {
             <Route path="/publisher/dashboard" element={
               <PublisherProtectedRoute>
                 <PublisherDashboard />
+              </PublisherProtectedRoute>
+            } />
+
+            <Route path="/publisher/all-campaigns" element={
+              <PublisherProtectedRoute>
+                <AllCampaigns />
               </PublisherProtectedRoute>
             } />
 

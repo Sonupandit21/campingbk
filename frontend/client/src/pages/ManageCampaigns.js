@@ -56,6 +56,36 @@ const ManageCampaigns = () => {
         }
     };
 
+    const approvePublisher = async (campaignId, publisherId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${BACKEND_URL}/api/admin/campaigns/${campaignId}/approve/${publisherId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                fetchCampaigns();
+            }
+        } catch (err) {
+            console.error('Approve error:', err);
+        }
+    };
+
+    const rejectPublisher = async (campaignId, publisherId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${BACKEND_URL}/api/admin/campaigns/${campaignId}/reject/${publisherId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                fetchCampaigns();
+            }
+        } catch (err) {
+            console.error('Reject error:', err);
+        }
+    };
+
     if (selectedCampaign) {
         return (
             <CampaignDetails 
@@ -121,11 +151,55 @@ const ManageCampaigns = () => {
                                                 padding: '5px 10px', 
                                                 borderRadius: '4px',
                                                 cursor: 'pointer',
-                                                fontWeight: 600
+                                                fontWeight: 600,
+                                                marginBottom: '5px'
                                             }}
                                         >
                                             Delete
                                         </button>
+                                        
+                                        {(() => {
+                                            const allPubs = new Map();
+                                            // Add from publisherApprovals
+                                            camp.publisherApprovals?.forEach(a => {
+                                                allPubs.set(String(a.publisher), { id: a.publisher, status: a.status });
+                                            });
+                                            // Add from assignedPublishers (legacy) as approved if not already present
+                                            camp.assignedPublishers?.forEach(id => {
+                                                if (!allPubs.has(String(id))) {
+                                                    allPubs.set(String(id), { id: id, status: 'approved' });
+                                                }
+                                            });
+
+                                            return Array.from(allPubs.values()).map(a => (
+                                                <div key={a.id} style={{ display: 'flex', gap: '5px', marginTop: '5px', alignItems: 'center', background: '#f8fafc', padding: '6px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569' }}>Pub ID: {a.id}</span>
+                                                        <span style={{ fontSize: '0.65rem', color: a.status === 'approved' ? '#166534' : a.status === 'rejected' ? '#991b1b' : '#7e22ce', fontWeight: 600 }}>
+                                                            {a.status.toUpperCase()}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
+                                                        {a.status !== 'approved' && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); approvePublisher(camp.id, a.id); }} 
+                                                                style={{ background: '#dcfce7', color: '#166534', border: 'none', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                        )}
+                                                        {a.status !== 'rejected' && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); rejectPublisher(camp.id, a.id); }} 
+                                                                style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()}
                                     </td>
                                 </tr>
                             ))

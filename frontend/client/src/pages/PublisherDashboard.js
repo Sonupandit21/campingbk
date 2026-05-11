@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
@@ -22,8 +22,10 @@ import {
   RefreshCw,
   MoreVertical,
   Activity,
-  Download
+  Download,
+  Plus
 } from 'lucide-react';
+
 import './PublisherDashboard.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'https://smart.trackyfly.com';
@@ -38,8 +40,9 @@ const PublisherDashboard = () => {
     return d.toISOString().split('T')[0];
   };
 
+  const location = useLocation();
   // State
-  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -88,6 +91,13 @@ const PublisherDashboard = () => {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  // Update activeTab if location state changes
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
 
   // Fetch IP
   useEffect(() => {
@@ -138,7 +148,7 @@ const PublisherDashboard = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'Dashboard' || activeTab === 'Manage') {
+    if (activeTab === 'Dashboard' || activeTab === 'Reports') {
       fetchReportData();
     }
   }, [activeTab, publisher.id, startDate, endDate]);
@@ -306,12 +316,21 @@ const PublisherDashboard = () => {
             <LayoutDashboard size={22} className="icon" />
             {isSidebarOpen && <span className="label">Dashboard</span>}
           </button>
+
           <button 
-            className={`pub-nav-item ${activeTab === 'Manage' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Manage')}
+            className="pub-nav-item"
+            onClick={() => navigate('/publisher/all-campaigns')}
+          >
+            <Plus size={22} className="icon" />
+            {isSidebarOpen && <span className="label">Manage</span>}
+          </button>
+
+          <button 
+            className={`pub-nav-item ${activeTab === 'Reports' ? 'active' : ''}`}
+            onClick={() => setActiveTab('Reports')}
           >
             <BarChart3 size={22} className="icon" />
-            {isSidebarOpen && <span className="label">Manage</span>}
+            {isSidebarOpen && <span className="label">Reports</span>}
           </button>
           
           <div className="nav-section-title" style={{ marginTop: '12px' }}>{isSidebarOpen ? 'Personal' : '•••'}</div>
@@ -384,7 +403,7 @@ const PublisherDashboard = () => {
                   <p className="pub-page-subtitle" style={{ marginBottom: 0 }}>Your publisher performance overview and management.</p>
               </div>
               
-              {(activeTab === 'Dashboard' || activeTab === 'Manage') && (
+              {(activeTab === 'Dashboard' || activeTab === 'Reports') && (
                   <div style={{ display: 'flex', gap: '16px' }}>
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                          <label style={{ fontSize: '0.95rem', color: '#475569', fontWeight: '500' }}>Start Date</label>
@@ -458,7 +477,7 @@ const PublisherDashboard = () => {
             <div style={{ marginTop: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0, color: '#1e293b' }}>Daily breakdown</h3>
-                    <button style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', outline: 'none' }} onClick={() => setActiveTab('Manage')}>
+                    <button style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', outline: 'none' }} onClick={() => setActiveTab('Reports')}>
                         View full report
                     </button>
                 </div>
@@ -543,7 +562,7 @@ const PublisherDashboard = () => {
             </>
           )}
 
-          {activeTab === 'Manage' && (
+          {activeTab === 'Reports' && (
             <div className="pub-table-card">
               <div className="pub-table-header">
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>

@@ -409,5 +409,61 @@ router.post('/admin/impersonate-publisher', auth, async (req, res) => {
   }
 });
 
+// Admin Impersonate User
+router.post('/admin/impersonate-user', auth, async (req, res) => {
+  try {
+    // Verify superadmin
+    if (req.user.role !== 'superadmin') {
+       return res.status(403).json({ error: 'Access denied. Superadmin only.' });
+    }
+
+    const { userId } = req.body;
+    const User = require('../models/User');
+    const mongoose = require('mongoose');
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ error: 'Invalid User ID format' });
+    }
+
+    const targetUser = await User.findById(userId);
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate token for user
+    const payload = {
+      user: {
+        id: targetUser.id,
+        role: targetUser.role,
+        email: targetUser.email
+      }
+    };
+
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '1h' } 
+    );
+
+    res.json({ 
+        token, 
+        user: { 
+            id: targetUser.id, 
+            username: targetUser.username, 
+            name: targetUser.name,
+            email: targetUser.email, 
+            role: targetUser.role,
+            photo: targetUser.photo
+        } 
+    });
+
+  } catch (err) {
+    console.error('User Impersonation Error:', err);
+    res.status(500).json({ error: `Server error during impersonation: ${err.message}` });
+  }
+});
+
 module.exports = router;
+
 

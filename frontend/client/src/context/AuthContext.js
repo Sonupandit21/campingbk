@@ -58,11 +58,10 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const impersonateLogin = (token, publisherData) => {
+  const impersonateLogin = (token, userData) => {
       localStorage.setItem('token', token);
-      const userWithRole = { ...publisherData, role: 'publisher' };
-      localStorage.setItem('user', JSON.stringify(userWithRole));
-      setUser(userWithRole);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
   };
 
   return (

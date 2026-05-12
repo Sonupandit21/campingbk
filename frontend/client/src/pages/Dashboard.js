@@ -304,6 +304,34 @@ const Dashboard = () => {
     }
   };
 
+  const handleImpersonateUser = async (targetUser) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${BACKEND_URL}/api/auth/admin/impersonate-user`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ userId: targetUser.id }) 
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            // Perform context login (swap token)
+            impersonateLogin(data.token, data.user); 
+            // Stay on dashboard but as the new user
+            window.location.reload(); 
+        } else {
+            const err = await response.json();
+            alert(`Impersonation failed: ${err.error}`);
+        }
+    } catch (e) {
+        console.error(e);
+        alert(`Impersonation failed: ${e.message}`);
+    }
+  };
+
   return (
     <div className={`dashboard-container ${isSidebarOpen ? '' : 'sidebar-collapsed'}`}>
       {/* Sidebar Overlay */}
@@ -607,6 +635,14 @@ const Dashboard = () => {
                         </td>
                         <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</td>
                         <td>
+                          {user?.role === 'superadmin' && (
+                            <button 
+                              onClick={() => handleImpersonateUser(u)}
+                              style={{ border: 'none', background: '#e0e7ff', color: '#4338ca', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, marginRight: '5px' }}
+                            >
+                              Login
+                            </button>
+                          )}
                           {user?.role === 'superadmin' && u.status !== 'approved' && (
                             <button 
                               onClick={() => handleApproveUser(u.id)}

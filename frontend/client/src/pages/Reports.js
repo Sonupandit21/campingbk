@@ -28,20 +28,20 @@ const Reports = () => {
         date: true,
         campaignId: true,
         campaignName: true,
-        adminName: user?.role === 'superadmin',
-        goalName: true,
+        adminName: false,
+        goalName: false,
         publisherId: true,
         publisherName: true,
-        source: true,
-        gross_clicks: true,
+        source: false,
+        gross_clicks: false,
         clicks: true,
-        unique_clicks: true,
-        sampled_clicks: true,
-        gross_conversions: true,
-        sampled_conversions: true,
+        unique_clicks: false,
+        sampled_clicks: false,
+        gross_conversions: false,
+        sampled_conversions: false,
         conversions: true,
         cr: true,
-        epc: true,
+        epc: false,
         payout: true
     });
     const [showColumnOptions, setShowColumnOptions] = useState(false);
@@ -210,14 +210,14 @@ const Reports = () => {
         let data = [...reportData];
 
         // 1. Aggregation Logic (If Date, Source, publisherId, or campaignId is hidden, sum up rows)
-        if (!visibleColumns.date || !visibleColumns.source || !visibleColumns.publisherId || !visibleColumns.campaignId) {
+        if (!visibleColumns.date || !visibleColumns.source || (!visibleColumns.publisherId && !visibleColumns.publisherName) || (!visibleColumns.campaignId && !visibleColumns.campaignName)) {
             const aggregatedMap = new Map();
 
             data.forEach(row => {
                 // Determine grouping keys based on visibility
                 const dateKey = visibleColumns.date ? (row.date || '') : 'ALL';
-                const campKey = visibleColumns.campaignId ? (row.camp_id || '') : 'ALL';
-                const pubKey = visibleColumns.publisherId ? (row.publisher_id || '') : 'ALL';
+                const campKey = (visibleColumns.campaignId || visibleColumns.campaignName) ? (row.camp_id || '') : 'ALL';
+                const pubKey = (visibleColumns.publisherId || visibleColumns.publisherName) ? (row.publisher_id || '') : 'ALL';
                 const sourceKey = visibleColumns.source ? (row.source || '') : 'ALL';
 
                 const key = `${dateKey}|${campKey}|${pubKey}|${sourceKey}`;
@@ -227,11 +227,11 @@ const Reports = () => {
                         ...row,
                         date: visibleColumns.date ? row.date : 'All Dates',
                         source: visibleColumns.source ? row.source : '', 
-                        camp_id: visibleColumns.campaignId ? row.camp_id : 'All',
-                        campaignName: visibleColumns.campaignId ? row.campaignName : 'All Campaigns',
-                        adminName: visibleColumns.campaignId ? row.adminName : 'All',
-                        publisher_id: visibleColumns.publisherId ? row.publisher_id : 'All',
-                        publisherName: visibleColumns.publisherId ? row.publisherName : 'All Publishers',
+                        camp_id: (visibleColumns.campaignId || visibleColumns.campaignName) ? row.camp_id : 'All',
+                        campaignName: (visibleColumns.campaignId || visibleColumns.campaignName) ? row.campaignName : 'All Campaigns',
+                        adminName: (visibleColumns.campaignId || visibleColumns.campaignName || visibleColumns.adminName) ? row.adminName : 'All',
+                        publisher_id: (visibleColumns.publisherId || visibleColumns.publisherName) ? row.publisher_id : 'All',
+                        publisherName: (visibleColumns.publisherId || visibleColumns.publisherName) ? row.publisherName : 'All Publishers',
                         gross_clicks: 0,
                         clicks: 0,
                         unique_clicks: 0,

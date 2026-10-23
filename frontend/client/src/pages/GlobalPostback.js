@@ -84,7 +84,7 @@ const GlobalPostback = () => {
                         Click on a macro below to add it to your URL.
                     </p>
                     <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        {['{click_id}', '{payout}', '{camp_id}', '{publisher_id}', '{source}'].map(macro => (
+                        {['{click_id}', '{payout}', '{camp_id}', '{publisher_id}', '{source}', '{goal_value}'].map(macro => (
                             <span 
                                 key={macro}
                                 onClick={() => setUrl(prev => prev + macro)}

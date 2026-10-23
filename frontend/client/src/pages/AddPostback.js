@@ -109,7 +109,7 @@ const AddPostback = ({ initialData, onSave, onCancel }) => {
   };
 
   const tokens = [
-    '{p1}', '{p2}', '{click_id}', '{aff_username}', '{publisher_id}', '{ip}', '{country_id}'
+    '{p1}', '{p2}', '{click_id}', '{aff_username}', '{publisher_id}', '{ip}', '{country_id}', '{goal_value}'
   ];
 
   return (
